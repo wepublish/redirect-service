@@ -98,6 +98,7 @@ See [.env.example](.env.example) for all variables. Notable ones:
 | `ACME_EMAIL` / `ACME_CA` | Let's Encrypt account email / directory URL |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` / `GITHUB_OAUTH_CALLBACK_URL` | OAuth app |
 | `ALLOWED_GITHUB_ORG` | GitHub org whose members may log in |
+| `ALLOWED_GITHUB_TEAM` | optional team *slug*; when set, only members of this team (within the org) may log in |
 | `SESSION_SECRET` | signs the session cookie |
 | `DEV_ADMIN_USER` / `DEV_ADMIN_PASSWORD` | optional local dev login |
 | `COOKIE_SECURE` | force secure cookies on/off (default: on unless dev login set) |

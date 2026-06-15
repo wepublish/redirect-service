@@ -47,3 +47,28 @@ export async function isOrgMember(
   });
   return res.status === 204;
 }
+
+/**
+ * Whether the authenticated user belongs to `teamSlug` within `org`. Checks the
+ * user's own teams (`GET /user/teams`), which works with the `read:org` scope.
+ */
+export async function isTeamMember(
+  accessToken: string,
+  org: string,
+  teamSlug: string,
+): Promise<boolean> {
+  const res = await fetch("https://api.github.com/user/teams?per_page=100", {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "User-Agent": "redirect-service",
+      Accept: "application/vnd.github+json",
+    },
+  });
+  if (!res.ok) return false;
+  const teams = (await res.json()) as Array<{ slug?: string; organization?: { login?: string } }>;
+  const o = org.toLowerCase();
+  const t = teamSlug.toLowerCase();
+  return teams.some(
+    (team) => team.organization?.login?.toLowerCase() === o && team.slug?.toLowerCase() === t,
+  );
+}

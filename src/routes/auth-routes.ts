@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { getSignedCookie, setSignedCookie } from "hono/cookie";
 import { config } from "../config.ts";
-import { buildAuthorizeUrl, exchangeCode, fetchLogin, isOrgMember } from "../auth/github.ts";
+import { buildAuthorizeUrl, exchangeCode, fetchLogin, isOrgMember, isTeamMember } from "../auth/github.ts";
 import { setUser, clearUser, getUser } from "../auth/session.ts";
 import { layout } from "../ui/layout.ts";
 import { renderLogin } from "../ui/pages.ts";
@@ -34,8 +34,15 @@ export function authRoutes() {
     const token = await exchangeCode(config.github.clientId, config.github.clientSecret, code);
     if (!token) return c.html(layout("Sign in", renderLogin(config.devLogin !== null, "OAuth exchange failed."), { chrome: false }), 400);
     const login = await fetchLogin(token);
-    if (!login || !(await isOrgMember(token, config.github.allowedOrg, login))) {
-      return c.html(layout("Sign in", renderLogin(config.devLogin !== null, `Not a member of ${config.github.allowedOrg}.`), { chrome: false }), 403);
+    const { allowedOrg, allowedTeam } = config.github;
+    const allowed =
+      !!login &&
+      (allowedTeam
+        ? await isTeamMember(token, allowedOrg, allowedTeam)
+        : await isOrgMember(token, allowedOrg, login));
+    if (!login || !allowed) {
+      const where = allowedTeam ? `the ${allowedOrg}/${allowedTeam} team` : `${allowedOrg}`;
+      return c.html(layout("Sign in", renderLogin(config.devLogin !== null, `Not a member of ${where}.`), { chrome: false }), 403);
     }
     await setUser(c, login);
     return c.redirect("/admin");

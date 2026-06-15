@@ -19,6 +19,9 @@ export const config = {
     clientSecret: optional("GITHUB_CLIENT_SECRET"),
     callbackUrl: optional("GITHUB_OAUTH_CALLBACK_URL"),
     allowedOrg: optional("ALLOWED_GITHUB_ORG"),
+    // Optional GitHub team slug. When set, sign-in requires membership of this
+    // team within ALLOWED_GITHUB_ORG (stricter than org-wide membership).
+    allowedTeam: optional("ALLOWED_GITHUB_TEAM"),
   },
   sessionSecret: required("SESSION_SECRET"),
   devLogin:
