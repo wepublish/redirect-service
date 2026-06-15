@@ -1,10 +1,27 @@
 import { html } from "hono/html";
+import type { HtmlEscapedString } from "hono/utils/html";
 import type { StoredDomain } from "../db/domains-repo.ts";
+import type { CnameStatus } from "../dns/cname-check.ts";
+import type { Project } from "../db/projects-repo.ts";
+
+export interface DomainRow {
+  domain: StoredDomain;
+  cname: CnameStatus;
+}
 
 function typeBadge(type: 301 | 302) {
   return type === 301
     ? html`<span class="badge badge-301">301 Permanent</span>`
     : html`<span class="badge badge-302">302 Temporary</span>`;
+}
+
+function projectOptions(projects: Project[], selected: number | null) {
+  return html`
+    <option value="" ${selected == null ? "selected" : ""}>— Unassigned —</option>
+    ${projects.map(
+      (p) => html`<option value="${p.id}" ${selected === p.id ? "selected" : ""}>${p.name}</option>`,
+    )}
+  `;
 }
 
 export function renderLogin(devLoginEnabled: boolean, error?: string) {
@@ -50,48 +67,101 @@ export function renderLogin(devLoginEnabled: boolean, error?: string) {
   `;
 }
 
-export function renderDomainList(domains: StoredDomain[]) {
+function domainRowTr({ domain: d, cname }: DomainRow) {
+  return html`<tr>
+    <td><span class="dot-only ${cname.ok ? "ok" : "bad"}" title="${cname.detail}"></span></td>
+    <td><a class="mono" href="/admin/domains/${d.id}">${d.hostname}</a></td>
+    <td>
+      ${d.mode === "domain"
+        ? html`<span class="badge badge-domain">Whole domain</span>`
+        : html`<span class="badge badge-links">Links</span>`}
+    </td>
+    <td class="truncate mono">
+      ${d.mode === "domain" ? d.targetUrl : `${d.links.length} rule${d.links.length === 1 ? "" : "s"}`}
+    </td>
+    <td class="actions">
+      <form class="inline" method="post" action="/admin/domains/${d.id}/delete"
+            onsubmit="return confirm('Delete ${d.hostname} and all its rules?')">
+        <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+      </form>
+    </td>
+  </tr>`;
+}
+
+function folder(title: HtmlEscapedString | string, rows: DomainRow[]) {
+  return html`<details class="card folder" open>
+    <summary>
+      <span class="folder-name">📁 ${title}</span>
+      <span class="count">${rows.length}</span>
+    </summary>
+    ${rows.length === 0
+      ? html`<div class="empty"><p>No domains in here yet — pick this project when adding a domain.</p></div>`
+      : html`<table>
+          <thead><tr><th>DNS</th><th>Host</th><th>Mode</th><th>Target / rules</th><th></th></tr></thead>
+          <tbody>${rows.map(domainRowTr)}</tbody>
+        </table>`}
+  </details>`;
+}
+
+export function renderDomainList(rows: DomainRow[], cnameTarget: string, projects: Project[]) {
+  const groups = new Map<number | null, DomainRow[]>();
+  for (const r of rows) {
+    const key = r.domain.projectId;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(r);
+  }
+  const unassigned = groups.get(null) ?? [];
+
   return html`
     <div class="container stack">
       <div class="page-head">
         <h1>Domains</h1>
-        <p class="sub">Redirects are served for each registered host. Point its CNAME at this service to get an automatic certificate.</p>
+        <p class="sub">Organize redirects into projects. Point each host's CNAME at this service to get an automatic certificate. The DNS dot shows whether the CNAME is correct (checked via 1.1.1.1).</p>
       </div>
 
       <div class="card">
-        <div class="card-head"><h2>Configured domains</h2></div>
-        ${domains.length === 0
-          ? html`<div class="empty">
-              <div class="icon">🌐</div>
-              <p>No domains yet. Add one below to get started.</p>
-            </div>`
-          : html`<table>
-              <thead><tr><th>Host</th><th>Mode</th><th>Target / rules</th><th></th></tr></thead>
-              <tbody>
-                ${domains.map(
-                  (d) => html`<tr>
-                    <td><a class="mono" href="/admin/domains/${d.id}">${d.hostname}</a></td>
-                    <td>
-                      ${d.mode === "domain"
-                        ? html`<span class="badge badge-domain">Whole domain</span>`
-                        : html`<span class="badge badge-links">Links</span>`}
-                    </td>
-                    <td class="truncate mono">
-                      ${d.mode === "domain"
-                        ? d.targetUrl
-                        : `${d.links.length} rule${d.links.length === 1 ? "" : "s"}`}
-                    </td>
-                    <td class="actions">
-                      <form class="inline" method="post" action="/admin/domains/${d.id}/delete"
-                            onsubmit="return confirm('Delete ${d.hostname} and all its rules?')">
-                        <button class="btn btn-danger btn-sm" type="submit">Delete</button>
-                      </form>
-                    </td>
-                  </tr>`,
-                )}
-              </tbody>
-            </table>`}
+        <div class="card-head"><h3>Projects</h3><p class="sub">Group your domains into folders.</p></div>
+        <div class="card-body">
+          <form class="form-row" method="post" action="/admin/projects" style="margin-bottom:${projects.length ? "1rem" : "0"}">
+            <div class="field" style="flex:1 1 240px">
+              <span class="label">New project</span>
+              <input name="name" placeholder="e.g. Marketing campaigns" required />
+            </div>
+            <button class="btn btn-primary" type="submit">Create project</button>
+          </form>
+          ${projects.length === 0
+            ? ""
+            : html`<table>
+                <thead><tr><th>Project</th><th>Domains</th><th></th></tr></thead>
+                <tbody>
+                  ${projects.map(
+                    (p) => html`<tr>
+                      <td>
+                        <form class="form-row" method="post" action="/admin/projects/${p.id}/rename" style="gap:.4rem">
+                          <input name="name" value="${p.name}" style="max-width:280px" />
+                          <button class="btn btn-secondary btn-sm" type="submit">Rename</button>
+                        </form>
+                      </td>
+                      <td>${groups.get(p.id)?.length ?? 0}</td>
+                      <td class="actions">
+                        <form class="inline" method="post" action="/admin/projects/${p.id}/delete"
+                              onsubmit="return confirm('Delete project ${p.name}? Its domains move to Unassigned.')">
+                          <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+                        </form>
+                      </td>
+                    </tr>`,
+                  )}
+                </tbody>
+              </table>`}
+        </div>
       </div>
+
+      ${rows.length === 0
+        ? html`<div class="card"><div class="empty"><div class="icon">🌐</div><p>No domains yet. Add one below to get started.</p></div></div>`
+        : html`
+            ${unassigned.length ? folder("Unassigned", unassigned) : ""}
+            ${projects.map((p) => folder(p.name, groups.get(p.id) ?? []))}
+          `}
 
       <div class="card">
         <div class="card-head">
@@ -99,6 +169,10 @@ export function renderDomainList(domains: StoredDomain[]) {
           <p class="sub">Choose whole-domain to forward everything, or links for exact path rules.</p>
         </div>
         <div class="card-body">
+          <p class="hint" style="margin-bottom:1rem">
+            To configure a domain, create a DNS <strong>CNAME</strong> record pointing it to
+            <span class="mono">${cnameTarget}</span> — the certificate is then issued automatically.
+          </p>
           <form method="post" action="/admin/domains">
             <div class="grid-2">
               <div class="field">
@@ -112,6 +186,10 @@ export function renderDomainList(domains: StoredDomain[]) {
                   <option value="links">Exact link redirects</option>
                 </select>
               </div>
+            </div>
+            <div class="field">
+              <span class="label">Project</span>
+              <select name="projectId">${projectOptions(projects, null)}</select>
             </div>
             <div id="domain-settings">
               <div class="field">
@@ -144,6 +222,8 @@ export function renderDomainList(domains: StoredDomain[]) {
 export function renderDomainEdit(
   domain: StoredDomain,
   cname: { ok: boolean; detail: string },
+  cnameTarget: string,
+  projects: Project[],
   error?: string,
 ) {
   return html`
@@ -160,10 +240,28 @@ export function renderDomainEdit(
               <span class="dot"></span> ${cname.detail}
             </span>
           </p>
+          <p class="hint" style="margin-top:.5rem">
+            Configure DNS: point a <strong>CNAME</strong> record for
+            <span class="mono">${domain.hostname}</span> to
+            <span class="mono">${cnameTarget}</span>.
+          </p>
         </div>
       </div>
 
       ${error ? html`<div class="alert alert-error">${error}</div>` : ""}
+
+      <div class="card">
+        <div class="card-head"><h3>Project</h3></div>
+        <div class="card-body">
+          <form class="form-row" method="post" action="/admin/domains/${domain.id}/project">
+            <div class="field" style="flex:1 1 240px">
+              <span class="label">Folder</span>
+              <select name="projectId">${projectOptions(projects, domain.projectId)}</select>
+            </div>
+            <button class="btn btn-secondary" type="submit">Move</button>
+          </form>
+        </div>
+      </div>
 
       ${domain.mode === "domain"
         ? html`<div class="card">

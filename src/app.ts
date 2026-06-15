@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { DomainsRepo } from "./db/domains-repo.ts";
+import type { ProjectsRepo } from "./db/projects-repo.ts";
 import { config } from "./config.ts";
 import { normalizeHost } from "./validation.ts";
 import { internalRoutes } from "./routes/internal.ts";
@@ -7,7 +8,7 @@ import { authRoutes } from "./routes/auth-routes.ts";
 import { adminRoutes } from "./routes/admin.ts";
 import { redirectRoutes } from "./routes/redirect.ts";
 
-export function createApp(repo: DomainsRepo) {
+export function createApp(repo: DomainsRepo, projectsRepo: ProjectsRepo) {
   const app = new Hono();
 
   // /internal + /healthz are always available (Caddy calls them on localhost).
@@ -15,7 +16,7 @@ export function createApp(repo: DomainsRepo) {
 
   const adminApp = new Hono();
   adminApp.route("/", authRoutes());
-  adminApp.route("/", adminRoutes(repo));
+  adminApp.route("/", adminRoutes(repo, projectsRepo));
   adminApp.get("/", (c) => c.redirect("/admin"));
 
   const redirectApp = redirectRoutes(repo);

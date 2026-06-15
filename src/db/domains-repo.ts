@@ -8,6 +8,7 @@ export interface CreateDomainInput {
   targetUrl: string | null;
   preservePath: boolean;
   redirectType: RedirectType;
+  projectId?: number | null;
 }
 
 export interface StoredLink extends LinkRule {
@@ -16,6 +17,7 @@ export interface StoredLink extends LinkRule {
 export interface StoredDomain extends DomainRecord {
   id: number;
   links: StoredLink[];
+  projectId: number | null;
 }
 
 interface DomainRow {
@@ -25,6 +27,7 @@ interface DomainRow {
   target_url: string | null;
   preserve_path: number;
   redirect_type: RedirectType;
+  project_id: number | null;
 }
 interface LinkRow {
   id: number;
@@ -38,10 +41,11 @@ export class DomainsRepo {
 
   createDomain(input: CreateDomainInput): StoredDomain {
     const host = normalizeHost(input.hostname);
+    const projectId = input.projectId ?? null;
     const row = this.db
-      .query<{ id: number }, [string, string, string | null, number, number, string]>(
-        `INSERT INTO domains (hostname, mode, target_url, preserve_path, redirect_type, created_at)
-         VALUES (?, ?, ?, ?, ?, ?) RETURNING id`,
+      .query<{ id: number }, [string, string, string | null, number, number, number | null, string]>(
+        `INSERT INTO domains (hostname, mode, target_url, preserve_path, redirect_type, project_id, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`,
       )
       .get(
         host,
@@ -49,6 +53,7 @@ export class DomainsRepo {
         input.targetUrl,
         input.preservePath ? 1 : 0,
         input.redirectType,
+        projectId,
         new Date().toISOString(),
       )!;
     return {
@@ -58,8 +63,13 @@ export class DomainsRepo {
       targetUrl: input.targetUrl,
       preservePath: input.preservePath,
       redirectType: input.redirectType,
+      projectId,
       links: [],
     };
+  }
+
+  setDomainProject(domainId: number, projectId: number | null): void {
+    this.db.query(`UPDATE domains SET project_id = ? WHERE id = ?`).run(projectId, domainId);
   }
 
   updateDomainTarget(
@@ -138,6 +148,7 @@ export class DomainsRepo {
       targetUrl: row.target_url,
       preservePath: row.preserve_path === 1,
       redirectType: row.redirect_type,
+      projectId: row.project_id,
       links,
     };
   }

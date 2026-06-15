@@ -111,7 +111,9 @@ const STYLES = `
   .pill { display: inline-flex; align-items: center; gap: .4rem; font-size: 13px; font-weight: 500; }
   .pill .dot { width: 8px; height: 8px; border-radius: 50%; }
   .pill.ok { color: var(--success); } .pill.ok .dot { background: var(--success); }
-  .pill.bad { color: var(--warn); }   .pill.bad .dot { background: var(--warn); }
+  .pill.bad { color: var(--danger); } .pill.bad .dot { background: var(--danger); }
+  .dot-only { display: inline-block; width: 9px; height: 9px; border-radius: 50%; vertical-align: middle; }
+  .dot-only.ok { background: var(--success); } .dot-only.bad { background: var(--danger); }
 
   /* ---- forms ---- */
   .field { display: block; margin-bottom: 1rem; }
@@ -149,6 +151,26 @@ const STYLES = `
   /* ---- alert ---- */
   .alert { padding: .7rem .9rem; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 1rem; border: 1px solid; }
   .alert-error { background: var(--danger-soft); color: var(--danger); border-color: #fda29b; }
+
+  /* ---- folder (collapsible project group) ---- */
+  details.folder { padding: 0; }
+  details.folder > summary {
+    list-style: none; cursor: pointer; user-select: none;
+    display: flex; align-items: center; gap: .6rem;
+    padding: .85rem 1.25rem;
+    font-weight: 600; font-size: 14px;
+  }
+  details.folder > summary::-webkit-details-marker { display: none; }
+  details.folder > summary::before {
+    content: "▸"; color: var(--muted); font-size: 11px; transition: transform .15s;
+  }
+  details.folder[open] > summary::before { transform: rotate(90deg); }
+  details.folder[open] > summary { border-bottom: 1px solid var(--border); }
+  details.folder > summary .folder-name { flex: 1; }
+  details.folder .count {
+    background: var(--bg); color: var(--muted);
+    border-radius: 999px; padding: .1rem .5rem; font-size: 12px; font-weight: 600;
+  }
 
   /* ---- empty state ---- */
   .empty { text-align: center; padding: 2.5rem 1rem; color: var(--muted); }

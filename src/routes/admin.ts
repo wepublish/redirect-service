@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { DomainsRepo } from "../db/domains-repo.ts";
+import type { ProjectsRepo } from "../db/projects-repo.ts";
 import { requireAuth } from "../auth/middleware.ts";
 import { layout } from "../ui/layout.ts";
 import { renderDomainList, renderDomainEdit } from "../ui/pages.ts";
@@ -12,14 +13,54 @@ function parseType(v: unknown): RedirectType {
   return v === "302" ? 302 : 301;
 }
 
-export function adminRoutes(repo: DomainsRepo) {
+function parseProjectId(v: unknown): number | null {
+  const n = Number(v);
+  return v && Number.isFinite(n) ? n : null;
+}
+
+export function adminRoutes(repo: DomainsRepo, projects: ProjectsRepo) {
   const app = new Hono<{ Variables: { user: string } }>();
   app.use("*", requireAuth);
 
-  app.get("/admin", (c) =>
-    c.html(layout("Domains", renderDomainList(repo.listDomains()), { user: c.get("user") })),
-  );
+  async function listRows() {
+    const domains = repo.listDomains();
+    const statuses = await Promise.all(
+      domains.map((d) => checkCname(d.hostname, config.cnameTarget)),
+    );
+    return domains.map((domain, i) => ({ domain, cname: statuses[i]! }));
+  }
 
+  const renderList = async (c: any, status: 200 | 400 = 200) =>
+    c.html(
+      layout("Domains", renderDomainList(await listRows(), config.cnameTarget, projects.list()), {
+        user: c.get("user"),
+      }),
+      status,
+    );
+
+  app.get("/admin", (c) => renderList(c));
+
+  // ---- projects ----
+  app.post("/admin/projects", async (c) => {
+    const b = await c.req.parseBody();
+    const name = String(b.name ?? "").trim();
+    if (name) projects.create(name);
+    return c.redirect("/admin");
+  });
+
+  app.post("/admin/projects/:id/rename", async (c) => {
+    const b = await c.req.parseBody();
+    const name = String(b.name ?? "").trim();
+    if (name) projects.rename(Number(c.req.param("id")), name);
+    return c.redirect("/admin");
+  });
+
+  app.post("/admin/projects/:id/delete", (c) => {
+    projects.delete(Number(c.req.param("id")));
+    return c.redirect("/admin");
+  });
+
+  // ---- domains ----
   app.post("/admin/domains", async (c) => {
     const b = await c.req.parseBody();
     const hostname = String(b.hostname ?? "");
@@ -28,11 +69,7 @@ export function adminRoutes(repo: DomainsRepo) {
     if (mode === "domain") {
       targetUrl = String(b.targetUrl ?? "");
       const v = validateTargetUrl(targetUrl, hostname);
-      if (!v.ok)
-        return c.html(
-          layout("Domains", renderDomainList(repo.listDomains()), { user: c.get("user") }),
-          400,
-        );
+      if (!v.ok) return renderList(c, 400);
     }
     repo.createDomain({
       hostname,
@@ -40,6 +77,7 @@ export function adminRoutes(repo: DomainsRepo) {
       targetUrl,
       preservePath: b.preservePath === "on",
       redirectType: parseType(b.redirectType),
+      projectId: parseProjectId(b.projectId),
     });
     return c.redirect("/admin");
   });
@@ -48,7 +86,11 @@ export function adminRoutes(repo: DomainsRepo) {
     const domain = repo.getById(Number(c.req.param("id")));
     if (!domain) return c.notFound();
     const cname = await checkCname(domain.hostname, config.cnameTarget);
-    return c.html(layout(domain.hostname, renderDomainEdit(domain, cname), { user: c.get("user") }));
+    return c.html(
+      layout(domain.hostname, renderDomainEdit(domain, cname, config.cnameTarget, projects.list()), {
+        user: c.get("user"),
+      }),
+    );
   });
 
   app.post("/admin/domains/:id/update", async (c) => {
@@ -60,11 +102,21 @@ export function adminRoutes(repo: DomainsRepo) {
     if (!v.ok) {
       const cname = await checkCname(domain.hostname, config.cnameTarget);
       return c.html(
-        layout(domain.hostname, renderDomainEdit(domain, cname, v.error), { user: c.get("user") }),
+        layout(domain.hostname, renderDomainEdit(domain, cname, config.cnameTarget, projects.list(), v.error), {
+          user: c.get("user"),
+        }),
         400,
       );
     }
     repo.updateDomainTarget(domain.id, targetUrl, b.preservePath === "on", parseType(b.redirectType));
+    return c.redirect(`/admin/domains/${domain.id}`);
+  });
+
+  app.post("/admin/domains/:id/project", async (c) => {
+    const domain = repo.getById(Number(c.req.param("id")));
+    if (!domain) return c.notFound();
+    const b = await c.req.parseBody();
+    repo.setDomainProject(domain.id, parseProjectId(b.projectId));
     return c.redirect(`/admin/domains/${domain.id}`);
   });
 
@@ -85,7 +137,9 @@ export function adminRoutes(repo: DomainsRepo) {
       const cname = await checkCname(domain.hostname, config.cnameTarget);
       const msg = !ps.ok ? ps.error : (vt as { ok: false; error: string }).error;
       return c.html(
-        layout(domain.hostname, renderDomainEdit(domain, cname, msg), { user: c.get("user") }),
+        layout(domain.hostname, renderDomainEdit(domain, cname, config.cnameTarget, projects.list(), msg), {
+          user: c.get("user"),
+        }),
         400,
       );
     }

@@ -6,15 +6,28 @@ automatic Let's Encrypt TLS for any domain pointed at it via CNAME.
 ## How it works
 
 Caddy terminates TLS and obtains certificates on-demand, gated by an allowlist
-endpoint (`/internal/tls-allowed`) so it only issues for domains you've
-registered. A Bun + Hono app resolves redirects, serves the admin UI, and handles
-auth. State lives in SQLite + Caddy's cert cache on the `/data` volume.
+endpoint (`/internal/tls-allowed`) so it only issues a certificate for a domain
+that is **both registered and has a correct CNAME** pointing at the service
+(verified live against Cloudflare DNS, `1.1.1.1`). If the CNAME isn't right, no
+cert is requested. A Bun + Hono app resolves redirects, serves the admin UI, and
+handles auth. State lives in SQLite + Caddy's cert cache on the `/data` volume.
+
+The admin UI shows each domain's CNAME status as a green (correct) or red
+(incorrect) dot, also checked via `1.1.1.1`.
 
 Both processes run in one **non-root** container: Caddy binds the unprivileged
 ports 8080/4443, and Docker publishes host 80→8080 and 443→4443 (the Docker
 daemon, already root, binds the privileged host ports). A small entrypoint script
 supervises Bun + Caddy; an init (`--init` / compose `init: true`) is PID1 for
 signal-forwarding and reaping.
+
+## Projects (folders)
+
+Domains can be organized into named **projects**. The admin page has a Projects
+card to create/rename/delete projects, and domains are shown grouped into
+collapsible folders (plus an "Unassigned" group). Pick a project when adding a
+domain, or move it later from the domain's edit page. Deleting a project keeps
+its domains — they just move back to Unassigned.
 
 ## Redirect kinds
 
@@ -28,8 +41,10 @@ signal-forwarding and reaping.
 1. Create a GitHub OAuth app; set the callback to
    `https://<ADMIN_HOSTNAME>/auth/github/callback`.
 2. Point `<ADMIN_HOSTNAME>` and every redirect domain's CNAME at this service's
-   public host. A cert is issued automatically on the first HTTPS request once
-   the domain is registered in the UI.
+   public host. Once the domain is registered in the UI **and** its CNAME
+   resolves to `CNAME_TARGET` (checked via `1.1.1.1`), a cert is issued
+   automatically on the first HTTPS request. A wrong/missing CNAME shows a red
+   dot in the UI and blocks cert issuance.
 3. Configure env (see `.env.example`).
 
 ## Run locally

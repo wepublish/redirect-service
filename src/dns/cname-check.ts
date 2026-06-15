@@ -1,5 +1,10 @@
-import { promises as dns } from "node:dns";
+import { Resolver } from "node:dns/promises";
 import { normalizeHost } from "../validation.ts";
+
+// Resolve against Cloudflare's public DNS (1.1.1.1) rather than the container's
+// resolver, so the CNAME check reflects authoritative public DNS.
+const resolver = new Resolver({ timeout: 3000, tries: 2 });
+resolver.setServers(["1.1.1.1", "1.0.0.1"]);
 
 export interface CnameStatus {
   ok: boolean;
@@ -7,24 +12,31 @@ export interface CnameStatus {
 }
 
 /**
- * Checks whether `hostname` is pointed at `expectedTarget` via CNAME, or whether
- * it otherwise resolves (some providers flatten CNAMEs at the apex). Best-effort,
- * informational only — never throws.
+ * Checks whether `hostname` is pointed at `expectedTarget` via a CNAME record,
+ * queried against 1.1.1.1. Best-effort and never throws.
+ *
+ * `ok: true` only when a CNAME for `hostname` resolves to `expectedTarget`.
  */
 export async function checkCname(hostname: string, expectedTarget: string): Promise<CnameStatus> {
   const host = normalizeHost(hostname);
   const target = normalizeHost(expectedTarget);
   try {
-    const records = await dns.resolveCname(host);
+    const records = await resolver.resolveCname(host);
     if (records.map(normalizeHost).includes(target)) {
       return { ok: true, detail: `CNAME → ${target}` };
     }
-    return { ok: false, detail: `CNAME points to ${records.join(", ") || "nothing"}, expected ${target}` };
+    return {
+      ok: false,
+      detail: `CNAME points to ${records.join(", ") || "nothing"}, expected ${target}`,
+    };
   } catch {
-    // No CNAME record; fall back to checking A/AAAA resolution as a hint.
+    // No CNAME record; report whether it resolves at all for a clearer message.
     try {
-      await dns.lookup(host);
-      return { ok: false, detail: `No CNAME to ${target} (host resolves, but not via CNAME)` };
+      const addrs = await resolver.resolve4(host).catch(() => resolver.resolve6(host));
+      return {
+        ok: false,
+        detail: `No CNAME to ${target} (resolves to ${addrs.join(", ")}, not via CNAME)`,
+      };
     } catch {
       return { ok: false, detail: `${host} does not resolve` };
     }
