@@ -1,0 +1,19 @@
+services:
+  redirect-service:
+    build: .
+    image: ghcr.io/wepublish/redirect-service:latest
+    # tini as PID1: forwards signals and reaps the two child processes.
+    init: true
+    restart: unless-stopped
+    # Host 80/443 -> container's unprivileged 8080/4443. The Docker daemon
+    # (already root) binds the privileged host ports; the container stays non-root.
+    ports:
+      - "80:8080"
+      - "443:4443"
+    env_file:
+      - .env
+    volumes:
+      - rs-data:/data
+
+volumes:
+  rs-data:

@@ -1,0 +1,2 @@
+[test]
+# colocated *.test.ts files are auto-discovered
