@@ -171,7 +171,9 @@ export function renderDomainList(rows: DomainRow[], cnameTarget: string, project
         <div class="card-body">
           <p class="hint" style="margin-bottom:1rem">
             To configure a domain, create a DNS <strong>CNAME</strong> record pointing it to
-            <span class="mono">${cnameTarget}</span> — the certificate is then issued automatically.
+            <span class="mono">${cnameTarget}</span> (for apex/root domains use an
+            <strong>ALIAS</strong>/<strong>ANAME</strong> or an A record to the same address) —
+            the certificate is then issued automatically.
           </p>
           <form method="post" action="/admin/domains">
             <div class="grid-2">
@@ -243,7 +245,8 @@ export function renderDomainEdit(
           <p class="hint" style="margin-top:.5rem">
             Configure DNS: point a <strong>CNAME</strong> record for
             <span class="mono">${domain.hostname}</span> to
-            <span class="mono">${cnameTarget}</span>.
+            <span class="mono">${cnameTarget}</span>
+            (apex/root domains: use an <strong>ALIAS</strong>/<strong>ANAME</strong> or A record to the same address).
           </p>
         </div>
       </div>

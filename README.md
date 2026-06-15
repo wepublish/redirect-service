@@ -12,8 +12,11 @@ that is **both registered and has a correct CNAME** pointing at the service
 cert is requested. A Bun + Hono app resolves redirects, serves the admin UI, and
 handles auth. State lives in SQLite + Caddy's cert cache on the `/data` volume.
 
-The admin UI shows each domain's CNAME status as a green (correct) or red
-(incorrect) dot, also checked via `1.1.1.1`.
+The admin UI shows each domain's DNS status as a green (correct) or red
+(incorrect) dot, also checked via `1.1.1.1`. The check passes either when a CNAME
+resolves to `CNAME_TARGET`, or when the host resolves to the same IP(s) as
+`CNAME_TARGET` — so **apex/root domains using CNAME flattening / ALIAS / ANAME**
+(which expose no CNAME record) and plain A-record setups are recognized too.
 
 Both processes run in one **non-root** container: Caddy binds the unprivileged
 ports 8080/4443, and Docker publishes host 80→8080 and 443→4443 (the Docker
