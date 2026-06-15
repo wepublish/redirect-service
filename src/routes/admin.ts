@@ -16,7 +16,9 @@ export function adminRoutes(repo: DomainsRepo) {
   const app = new Hono<{ Variables: { user: string } }>();
   app.use("*", requireAuth);
 
-  app.get("/admin", (c) => c.html(layout("Domains", renderDomainList(c.get("user"), repo.listDomains()))));
+  app.get("/admin", (c) =>
+    c.html(layout("Domains", renderDomainList(repo.listDomains()), { user: c.get("user") })),
+  );
 
   app.post("/admin/domains", async (c) => {
     const b = await c.req.parseBody();
@@ -26,7 +28,11 @@ export function adminRoutes(repo: DomainsRepo) {
     if (mode === "domain") {
       targetUrl = String(b.targetUrl ?? "");
       const v = validateTargetUrl(targetUrl, hostname);
-      if (!v.ok) return c.html(layout("Domains", renderDomainList(c.get("user"), repo.listDomains())), 400);
+      if (!v.ok)
+        return c.html(
+          layout("Domains", renderDomainList(repo.listDomains()), { user: c.get("user") }),
+          400,
+        );
     }
     repo.createDomain({
       hostname,
@@ -42,7 +48,7 @@ export function adminRoutes(repo: DomainsRepo) {
     const domain = repo.getById(Number(c.req.param("id")));
     if (!domain) return c.notFound();
     const cname = await checkCname(domain.hostname, config.cnameTarget);
-    return c.html(layout(domain.hostname, renderDomainEdit(domain, cname)));
+    return c.html(layout(domain.hostname, renderDomainEdit(domain, cname), { user: c.get("user") }));
   });
 
   app.post("/admin/domains/:id/update", async (c) => {
@@ -53,7 +59,10 @@ export function adminRoutes(repo: DomainsRepo) {
     const v = validateTargetUrl(targetUrl, domain.hostname);
     if (!v.ok) {
       const cname = await checkCname(domain.hostname, config.cnameTarget);
-      return c.html(layout(domain.hostname, renderDomainEdit(domain, cname, v.error)), 400);
+      return c.html(
+        layout(domain.hostname, renderDomainEdit(domain, cname, v.error), { user: c.get("user") }),
+        400,
+      );
     }
     repo.updateDomainTarget(domain.id, targetUrl, b.preservePath === "on", parseType(b.redirectType));
     return c.redirect(`/admin/domains/${domain.id}`);
@@ -75,7 +84,10 @@ export function adminRoutes(repo: DomainsRepo) {
     if (!ps.ok || !vt.ok) {
       const cname = await checkCname(domain.hostname, config.cnameTarget);
       const msg = !ps.ok ? ps.error : (vt as { ok: false; error: string }).error;
-      return c.html(layout(domain.hostname, renderDomainEdit(domain, cname, msg)), 400);
+      return c.html(
+        layout(domain.hostname, renderDomainEdit(domain, cname, msg), { user: c.get("user") }),
+        400,
+      );
     }
     repo.addLink(domain.id, { sourcePath, targetUrl, redirectType: parseType(b.redirectType) });
     return c.redirect(`/admin/domains/${domain.id}`);

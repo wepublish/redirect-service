@@ -13,7 +13,7 @@ export function authRoutes() {
 
   app.get("/login", async (c) => {
     if (await getUser(c)) return c.redirect("/admin");
-    return c.html(layout("Sign in", renderLogin(config.devLogin !== null)));
+    return c.html(layout("Sign in", renderLogin(config.devLogin !== null), { chrome: false }));
   });
 
   app.get("/auth/github", async (c) => {
@@ -29,13 +29,13 @@ export function authRoutes() {
     const state = c.req.query("state");
     const expected = await getSignedCookie(c, config.sessionSecret, STATE_COOKIE);
     if (!code || !state || state !== expected) {
-      return c.html(layout("Sign in", renderLogin(config.devLogin !== null, "Invalid OAuth state.")), 400);
+      return c.html(layout("Sign in", renderLogin(config.devLogin !== null, "Invalid OAuth state."), { chrome: false }), 400);
     }
     const token = await exchangeCode(config.github.clientId, config.github.clientSecret, code);
-    if (!token) return c.html(layout("Sign in", renderLogin(config.devLogin !== null, "OAuth exchange failed.")), 400);
+    if (!token) return c.html(layout("Sign in", renderLogin(config.devLogin !== null, "OAuth exchange failed."), { chrome: false }), 400);
     const login = await fetchLogin(token);
     if (!login || !(await isOrgMember(token, config.github.allowedOrg, login))) {
-      return c.html(layout("Sign in", renderLogin(config.devLogin !== null, `Not a member of ${config.github.allowedOrg}.`)), 403);
+      return c.html(layout("Sign in", renderLogin(config.devLogin !== null, `Not a member of ${config.github.allowedOrg}.`), { chrome: false }), 403);
     }
     await setUser(c, login);
     return c.redirect("/admin");
@@ -48,7 +48,7 @@ export function authRoutes() {
       await setUser(c, `dev:${config.devLogin.user}`);
       return c.redirect("/admin");
     }
-    return c.html(layout("Sign in", renderLogin(true, "Invalid dev credentials.")), 401);
+    return c.html(layout("Sign in", renderLogin(true, "Invalid dev credentials."), { chrome: false }), 401);
   });
 
   app.get("/logout", (c) => {
