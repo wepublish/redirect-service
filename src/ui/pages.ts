@@ -189,8 +189,9 @@ export function renderDomainList(rows: DomainRow[], cnameTarget: string, project
         <p class="sub">Organize redirects into projects. Point each host's CNAME at this service to get an automatic certificate. The DNS dot shows whether the CNAME is correct (checked via 1.1.1.1).</p>
       </div>
 
-      <div class="field" style="margin:0">
-        <input type="search" placeholder="Search domain or target…" oninput="rsFilter(this.value)" autocomplete="off" />
+      <div style="display:flex; gap:.6rem; align-items:center">
+        <input type="search" placeholder="Search domain or target…" oninput="rsFilter(this.value)" autocomplete="off" style="flex:1" />
+        <a class="btn btn-secondary" href="/admin/projects" style="white-space:nowrap">📁 Manage projects</a>
       </div>
       <script>
         function rsFilter(q) {
@@ -207,43 +208,6 @@ export function renderDomainList(rows: DomainRow[], cnameTarget: string, project
           });
         }
       </script>
-
-      <div class="card">
-        <div class="card-head"><h3>Projects</h3><p class="sub">Group your domains into folders.</p></div>
-        <div class="card-body">
-          <form class="form-row" method="post" action="/admin/projects" style="margin-bottom:${projects.length ? "1rem" : "0"}">
-            <div class="field" style="flex:1 1 240px">
-              <span class="label">New project</span>
-              <input name="name" placeholder="e.g. Marketing campaigns" required />
-            </div>
-            <button class="btn btn-primary" type="submit">Create project</button>
-          </form>
-          ${projects.length === 0
-            ? ""
-            : html`<table>
-                <thead><tr><th>Project</th><th>Domains</th><th></th></tr></thead>
-                <tbody>
-                  ${projects.map(
-                    (p) => html`<tr>
-                      <td>
-                        <form class="form-row" method="post" action="/admin/projects/${p.id}/rename" style="gap:.4rem">
-                          <input name="name" value="${p.name}" style="max-width:280px" />
-                          <button class="btn btn-secondary btn-sm" type="submit">Rename</button>
-                        </form>
-                      </td>
-                      <td>${groups.get(p.id)?.length ?? 0}</td>
-                      <td class="actions">
-                        <form class="inline" method="post" action="/admin/projects/${p.id}/delete"
-                              onsubmit="return confirm('Delete project ${p.name}? Its domains move to Unassigned.')">
-                          <button class="btn btn-danger btn-sm" type="submit">Delete</button>
-                        </form>
-                      </td>
-                    </tr>`,
-                  )}
-                </tbody>
-              </table>`}
-        </div>
-      </div>
 
       ${rows.length === 0
         ? html`<div class="card"><div class="empty"><div class="icon">🌐</div><p>No domains yet. Add one below to get started.</p></div></div>`
@@ -272,12 +236,19 @@ export function renderDomainList(rows: DomainRow[], cnameTarget: string, project
               </div>
               <div class="field">
                 <span class="label">Mode</span>
-                <select name="mode" onchange="var m=this.value;document.getElementById('domain-settings').style.display=m==='domain'?'':'none';document.getElementById('static-settings').style.display=m==='static'?'':'none'">
+                <select name="mode" onchange="var m=this.value;document.getElementById('domain-settings').style.display=m==='domain'?'':'none';document.getElementById('static-settings').style.display=m==='static'?'':'none';document.getElementById('links-settings').style.display=m==='links'?'':'none'">
                   <option value="domain">Whole-domain redirect</option>
                   <option value="links">Exact link redirects</option>
                   <option value="static">Static HTML page</option>
                 </select>
               </div>
+            </div>
+            <div id="links-settings" style="display:none">
+              <p class="hint" style="margin-bottom:1rem">
+                Registers the host now. After adding it, open the domain to define exact
+                path rules — e.g. <span class="mono">/promo → https://shop.com/sale</span>.
+                Unmatched paths return 404.
+              </p>
             </div>
             <div id="static-settings" style="display:none">
               <div class="field">
@@ -311,6 +282,61 @@ export function renderDomainList(rows: DomainRow[], cnameTarget: string, project
             <button class="btn btn-primary" type="submit">Add domain</button>
           </form>
         </div>
+      </div>
+    </div>
+  `;
+}
+
+export function renderProjects(items: { id: number; name: string; count: number }[]) {
+  return html`
+    <div class="container stack">
+      <div>
+        <a class="back" href="/admin">← All domains</a>
+        <div class="page-head" style="margin-bottom:0">
+          <h1>Projects</h1>
+          <p class="sub">Group your domains into folders. Deleting a project keeps its domains — they move back to Unassigned.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>New project</h3></div>
+        <div class="card-body">
+          <form class="form-row" method="post" action="/admin/projects">
+            <div class="field" style="flex:1 1 240px">
+              <span class="label">Name</span>
+              <input name="name" placeholder="e.g. Marketing campaigns" required autofocus />
+            </div>
+            <button class="btn btn-primary" type="submit">Create project</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Existing projects</h3></div>
+        ${items.length === 0
+          ? html`<div class="empty"><div class="icon">📁</div><p>No projects yet.</p></div>`
+          : html`<table>
+              <thead><tr><th>Project</th><th>Domains</th><th></th></tr></thead>
+              <tbody>
+                ${items.map(
+                  (p) => html`<tr>
+                    <td>
+                      <form class="form-row" method="post" action="/admin/projects/${p.id}/rename" style="gap:.4rem">
+                        <input name="name" value="${p.name}" style="max-width:280px" />
+                        <button class="btn btn-secondary btn-sm" type="submit">Rename</button>
+                      </form>
+                    </td>
+                    <td>${p.count}</td>
+                    <td class="actions">
+                      <form class="inline" method="post" action="/admin/projects/${p.id}/delete"
+                            onsubmit="return confirm('Delete project ${p.name}? Its domains move to Unassigned.')">
+                        <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+                      </form>
+                    </td>
+                  </tr>`,
+                )}
+              </tbody>
+            </table>`}
       </div>
     </div>
   `;

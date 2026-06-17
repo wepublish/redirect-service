@@ -3,7 +3,7 @@ import type { DomainsRepo } from "../db/domains-repo.ts";
 import type { ProjectsRepo } from "../db/projects-repo.ts";
 import { requireAuth } from "../auth/middleware.ts";
 import { layout } from "../ui/layout.ts";
-import { renderDomainList, renderDomainEdit } from "../ui/pages.ts";
+import { renderDomainList, renderDomainEdit, renderProjects } from "../ui/pages.ts";
 import { checkCname } from "../dns/cname-check.ts";
 import { getCertStatus } from "../tls/cert-info.ts";
 import { config } from "../config.ts";
@@ -41,24 +41,33 @@ export function adminRoutes(repo: DomainsRepo, projects: ProjectsRepo) {
 
   app.get("/admin", (c) => renderList(c));
 
-  // ---- projects ----
+  // ---- projects (own page) ----
+  app.get("/admin/projects", (c) => {
+    const counts = new Map<number, number>();
+    for (const d of repo.listDomains()) {
+      if (d.projectId != null) counts.set(d.projectId, (counts.get(d.projectId) ?? 0) + 1);
+    }
+    const items = projects.list().map((p) => ({ ...p, count: counts.get(p.id) ?? 0 }));
+    return c.html(layout("Projects", renderProjects(items), { user: c.get("user") }));
+  });
+
   app.post("/admin/projects", async (c) => {
     const b = await c.req.parseBody();
     const name = String(b.name ?? "").trim();
     if (name) projects.create(name);
-    return c.redirect("/admin");
+    return c.redirect("/admin/projects");
   });
 
   app.post("/admin/projects/:id/rename", async (c) => {
     const b = await c.req.parseBody();
     const name = String(b.name ?? "").trim();
     if (name) projects.rename(Number(c.req.param("id")), name);
-    return c.redirect("/admin");
+    return c.redirect("/admin/projects");
   });
 
   app.post("/admin/projects/:id/delete", (c) => {
     projects.delete(Number(c.req.param("id")));
-    return c.redirect("/admin");
+    return c.redirect("/admin/projects");
   });
 
   // ---- domains ----

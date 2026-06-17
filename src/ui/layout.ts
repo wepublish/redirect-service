@@ -130,6 +130,7 @@ const STYLES = `
   .field { display: block; margin-bottom: 1rem; }
   .field > .label { display: block; font-weight: 500; font-size: 13px; margin-bottom: .35rem; }
   .field .hint { color: var(--muted); font-size: 12px; margin-top: .3rem; }
+  details.legend { margin-bottom: 1.25rem; }
   details.legend > summary { cursor: pointer; color: var(--primary); font-size: 13px; }
   details.legend ul { margin: .5rem 0 0; padding-left: 1.1rem; color: var(--muted); font-size: 13px; }
   details.legend li { margin: .25rem 0; }
