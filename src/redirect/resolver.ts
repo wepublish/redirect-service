@@ -51,9 +51,11 @@ export interface LinkRule {
   redirectType: RedirectType;
 }
 
+export type DomainMode = "domain" | "links" | "static";
+
 export interface DomainRecord {
   hostname: string;
-  mode: "domain" | "links";
+  mode: DomainMode;
   targetUrl: string | null;
   preservePath: boolean;
   redirectType: RedirectType;
@@ -84,8 +86,13 @@ export function resolve(
     return { status: domain.redirectType, location };
   }
 
-  // links mode: exact path match only
-  const rule = domain.links.find((r) => r.sourcePath === path);
-  if (!rule) return { status: 404 };
-  return { status: rule.redirectType, location: rule.targetUrl };
+  if (domain.mode === "links") {
+    // exact path match only
+    const rule = domain.links.find((r) => r.sourcePath === path);
+    if (!rule) return { status: 404 };
+    return { status: rule.redirectType, location: rule.targetUrl };
+  }
+
+  // 'static' mode is not a redirect — it is served as HTML by the route layer.
+  return { status: 404 };
 }

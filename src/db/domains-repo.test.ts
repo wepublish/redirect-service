@@ -69,6 +69,17 @@ describe("DomainsRepo", () => {
     expect(r.isAllowedDomain("nope.com")).toBe(false);
   });
 
+  test("static mode stores and updates html_content", () => {
+    const d = r.createDomain({
+      hostname: "page.com", mode: "static", targetUrl: null,
+      preservePath: false, redirectType: 301, htmlContent: "<h1>hi</h1>",
+    });
+    expect(r.getByHostname("page.com")?.mode).toBe("static");
+    expect(r.getByHostname("page.com")?.htmlContent).toBe("<h1>hi</h1>");
+    r.updateStaticHtml(d.id, "<h1>bye</h1>");
+    expect(r.getByHostname("page.com")?.htmlContent).toBe("<h1>bye</h1>");
+  });
+
   test("updateDomainTarget changes target/preserve/type", () => {
     const d = r.createDomain({ hostname: "old.com", mode: "domain", targetUrl: "https://a.com", preservePath: true, redirectType: 301 });
     r.updateDomainTarget(d.id, "https://b.com", false, 302);

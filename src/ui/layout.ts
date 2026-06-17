@@ -110,6 +110,7 @@ const STYLES = `
   }
   .badge-domain { background: var(--primary-soft); color: var(--primary); }
   .badge-links  { background: var(--links-soft); color: var(--links); }
+  .badge-static { background: var(--success-soft); color: var(--success); }
   .badge-301 { background: var(--success-soft); color: var(--success); }
   .badge-302 { background: var(--warn-soft); color: var(--warn); }
   .pill { display: inline-flex; align-items: center; gap: .4rem; font-size: 13px; font-weight: 500; }
@@ -127,12 +128,13 @@ const STYLES = `
   details.legend ul { margin: .5rem 0 0; padding-left: 1.1rem; color: var(--muted); font-size: 13px; }
   details.legend li { margin: .25rem 0; }
   details.legend li strong { color: var(--text); }
-  input[type=text], input:not([type]), input[type=password], select {
+  input[type=text], input:not([type]), input[type=password], select, textarea {
     width: 100%; padding: .55rem .7rem;
     border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
     background: var(--bg); color: var(--text); font: inherit;
   }
-  input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+  textarea { resize: vertical; min-height: 7rem; line-height: 1.45; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
   .check { display: flex; align-items: center; gap: .5rem; font-size: 14px; }
   .check input { width: auto; }
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1rem; }

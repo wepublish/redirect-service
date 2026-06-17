@@ -37,6 +37,8 @@ its domains — they just move back to Unassigned.
 - **Whole-domain**: `old.com/*` → `new.com` (path/query preserved by default,
   per-rule toggle to drop it).
 - **Exact link**: `old.com/promo` → `shop.com/sale` (exact path; unmatched → 404).
+- **Static page**: serve a single HTML page (pasted into the UI) as `text/html`
+  on every path of the host — handy for holding/landing pages. No redirect.
 
 Each rule uses one of these HTTP redirect status codes (explained inline in the UI):
 

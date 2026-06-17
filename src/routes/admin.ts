@@ -60,12 +60,16 @@ export function adminRoutes(repo: DomainsRepo, projects: ProjectsRepo) {
   app.post("/admin/domains", async (c) => {
     const b = await c.req.parseBody();
     const hostname = String(b.hostname ?? "");
-    const mode = b.mode === "links" ? "links" : "domain";
+    const mode = b.mode === "links" ? "links" : b.mode === "static" ? "static" : "domain";
     let targetUrl: string | null = null;
+    let htmlContent: string | null = null;
     if (mode === "domain") {
       targetUrl = String(b.targetUrl ?? "");
       const v = validateTargetUrl(targetUrl, hostname);
       if (!v.ok) return renderList(c, 400);
+    }
+    if (mode === "static") {
+      htmlContent = String(b.htmlContent ?? "");
     }
     repo.createDomain({
       hostname,
@@ -74,6 +78,7 @@ export function adminRoutes(repo: DomainsRepo, projects: ProjectsRepo) {
       preservePath: b.preservePath === "on",
       redirectType: toRedirectType(b.redirectType),
       projectId: parseProjectId(b.projectId),
+      htmlContent,
     });
     return c.redirect("/admin");
   });
@@ -105,6 +110,14 @@ export function adminRoutes(repo: DomainsRepo, projects: ProjectsRepo) {
       );
     }
     repo.updateDomainTarget(domain.id, targetUrl, b.preservePath === "on", toRedirectType(b.redirectType));
+    return c.redirect(`/admin/domains/${domain.id}`);
+  });
+
+  app.post("/admin/domains/:id/static", async (c) => {
+    const domain = repo.getById(Number(c.req.param("id")));
+    if (!domain) return c.notFound();
+    const b = await c.req.parseBody();
+    repo.updateStaticHtml(domain.id, String(b.htmlContent ?? ""));
     return c.redirect(`/admin/domains/${domain.id}`);
   });
 

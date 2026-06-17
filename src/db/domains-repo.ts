@@ -4,11 +4,12 @@ import { normalizeHost } from "../validation.ts";
 
 export interface CreateDomainInput {
   hostname: string;
-  mode: "domain" | "links";
+  mode: "domain" | "links" | "static";
   targetUrl: string | null;
   preservePath: boolean;
   redirectType: RedirectType;
   projectId?: number | null;
+  htmlContent?: string | null;
 }
 
 export interface StoredLink extends LinkRule {
@@ -18,16 +19,18 @@ export interface StoredDomain extends DomainRecord {
   id: number;
   links: StoredLink[];
   projectId: number | null;
+  htmlContent: string | null;
 }
 
 interface DomainRow {
   id: number;
   hostname: string;
-  mode: "domain" | "links";
+  mode: "domain" | "links" | "static";
   target_url: string | null;
   preserve_path: number;
   redirect_type: RedirectType;
   project_id: number | null;
+  html_content: string | null;
 }
 interface LinkRow {
   id: number;
@@ -42,10 +45,14 @@ export class DomainsRepo {
   createDomain(input: CreateDomainInput): StoredDomain {
     const host = normalizeHost(input.hostname);
     const projectId = input.projectId ?? null;
+    const htmlContent = input.htmlContent ?? null;
     const row = this.db
-      .query<{ id: number }, [string, string, string | null, number, number, number | null, string]>(
-        `INSERT INTO domains (hostname, mode, target_url, preserve_path, redirect_type, project_id, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+      .query<
+        { id: number },
+        [string, string, string | null, number, number, number | null, string | null, string]
+      >(
+        `INSERT INTO domains (hostname, mode, target_url, preserve_path, redirect_type, project_id, html_content, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
       )
       .get(
         host,
@@ -54,6 +61,7 @@ export class DomainsRepo {
         input.preservePath ? 1 : 0,
         input.redirectType,
         projectId,
+        htmlContent,
         new Date().toISOString(),
       )!;
     return {
@@ -64,12 +72,17 @@ export class DomainsRepo {
       preservePath: input.preservePath,
       redirectType: input.redirectType,
       projectId,
+      htmlContent,
       links: [],
     };
   }
 
   setDomainProject(domainId: number, projectId: number | null): void {
     this.db.query(`UPDATE domains SET project_id = ? WHERE id = ?`).run(projectId, domainId);
+  }
+
+  updateStaticHtml(domainId: number, html: string): void {
+    this.db.query(`UPDATE domains SET html_content = ? WHERE id = ?`).run(html, domainId);
   }
 
   updateDomainTarget(
@@ -149,6 +162,7 @@ export class DomainsRepo {
       preservePath: row.preserve_path === 1,
       redirectType: row.redirect_type,
       projectId: row.project_id,
+      htmlContent: row.html_content,
       links,
     };
   }

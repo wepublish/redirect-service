@@ -15,6 +15,12 @@ function typeBadge(type: RedirectType) {
   return html`<span class="badge ${meta.permanent ? "badge-301" : "badge-302"}" title="${meta.summary}">${type} ${meta.label}</span>`;
 }
 
+function modeBadge(mode: StoredDomain["mode"]) {
+  if (mode === "domain") return html`<span class="badge badge-domain">Whole domain</span>`;
+  if (mode === "static") return html`<span class="badge badge-static">Static page</span>`;
+  return html`<span class="badge badge-links">Links</span>`;
+}
+
 function redirectTypeOptions(selected: RedirectType = 301) {
   return html`${REDIRECT_TYPES.map(
     (t) =>
@@ -87,13 +93,13 @@ function domainRowTr({ domain: d, cname }: DomainRow) {
   return html`<tr>
     <td><span class="dot-only ${cname.ok ? "ok" : "bad"}" title="${cname.detail}"></span></td>
     <td><a class="mono" href="/admin/domains/${d.id}">${d.hostname}</a></td>
-    <td>
-      ${d.mode === "domain"
-        ? html`<span class="badge badge-domain">Whole domain</span>`
-        : html`<span class="badge badge-links">Links</span>`}
-    </td>
+    <td>${modeBadge(d.mode)}</td>
     <td class="truncate mono">
-      ${d.mode === "domain" ? d.targetUrl : `${d.links.length} rule${d.links.length === 1 ? "" : "s"}`}
+      ${d.mode === "domain"
+        ? d.targetUrl
+        : d.mode === "static"
+          ? "HTML page"
+          : `${d.links.length} rule${d.links.length === 1 ? "" : "s"}`}
     </td>
     <td class="actions">
       <form class="inline" method="post" action="/admin/domains/${d.id}/delete"
@@ -199,10 +205,18 @@ export function renderDomainList(rows: DomainRow[], cnameTarget: string, project
               </div>
               <div class="field">
                 <span class="label">Mode</span>
-                <select name="mode" onchange="document.getElementById('domain-settings').style.display = this.value === 'domain' ? '' : 'none'">
+                <select name="mode" onchange="var m=this.value;document.getElementById('domain-settings').style.display=m==='domain'?'':'none';document.getElementById('static-settings').style.display=m==='static'?'':'none'">
                   <option value="domain">Whole-domain redirect</option>
                   <option value="links">Exact link redirects</option>
+                  <option value="static">Static HTML page</option>
                 </select>
+              </div>
+            </div>
+            <div id="static-settings" style="display:none">
+              <div class="field">
+                <span class="label">HTML content</span>
+                <textarea name="htmlContent" rows="10" class="mono" placeholder="&lt;!doctype html&gt;&#10;&lt;h1&gt;Coming soon&lt;/h1&gt;"></textarea>
+                <span class="hint">Served as <code>text/html</code> on every path of this host.</span>
               </div>
             </div>
             <div class="field">
@@ -249,9 +263,7 @@ export function renderDomainEdit(
         <div class="page-head" style="margin-bottom:0">
           <h1 class="mono">${domain.hostname}</h1>
           <p class="sub">
-            ${domain.mode === "domain"
-              ? html`<span class="badge badge-domain">Whole domain</span>`
-              : html`<span class="badge badge-links">Links</span>`}
+            ${modeBadge(domain.mode)}
             <span class="pill ${cname.ok ? "ok" : "bad"}" style="margin-left:.5rem">
               <span class="dot"></span> ${cname.detail}
             </span>
@@ -280,7 +292,22 @@ export function renderDomainEdit(
         </div>
       </div>
 
-      ${domain.mode === "domain"
+      ${domain.mode === "static"
+        ? html`<div class="card">
+            <div class="card-head">
+              <h3>Static HTML</h3>
+              <p class="sub">Served as <code>text/html</code> on every path of this host.</p>
+            </div>
+            <div class="card-body">
+              <form method="post" action="/admin/domains/${domain.id}/static">
+                <div class="field">
+                  <textarea name="htmlContent" rows="18" class="mono">${domain.htmlContent ?? ""}</textarea>
+                </div>
+                <button class="btn btn-primary" type="submit">Save HTML</button>
+              </form>
+            </div>
+          </div>`
+        : domain.mode === "domain"
         ? html`<div class="card">
             <div class="card-head"><h3>Redirect settings</h3></div>
             <div class="card-body">
