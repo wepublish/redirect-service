@@ -7,7 +7,7 @@ import { renderDomainList, renderDomainEdit, renderProjects, renderNotFoundEdito
 import { checkCname } from "../dns/cname-check.ts";
 import { getCertStatus } from "../tls/cert-info.ts";
 import { config } from "../config.ts";
-import { validateSourcePath, validateTargetUrl } from "../validation.ts";
+import { validateSourcePath, validateTargetUrl, normalizeHost } from "../validation.ts";
 import { toRedirectType } from "../redirect/resolver.ts";
 
 function parseProjectId(v: unknown): number | null {
@@ -31,9 +31,9 @@ export function adminRoutes(repo: DomainsRepo, projects: ProjectsRepo) {
     }));
   }
 
-  const renderList = async (c: any, status: 200 | 400 = 200) =>
+  const renderList = async (c: any, status: 200 | 400 = 200, error?: string) =>
     c.html(
-      layout("Domains", renderDomainList(await listRows(), config.cnameTarget, projects.list()), {
+      layout("Domains", renderDomainList(await listRows(), config.cnameTarget, projects.list(), error), {
         user: c.get("user"),
       }),
       status,
@@ -76,12 +76,16 @@ export function adminRoutes(repo: DomainsRepo, projects: ProjectsRepo) {
     const hostname = String(form.get("hostname") ?? "");
     const modeRaw = form.get("mode");
     const mode = modeRaw === "links" ? "links" : modeRaw === "static" ? "static" : "domain";
+    // Reject a duplicate hostname with a clean message instead of a DB error.
+    if (repo.getByHostname(hostname)) {
+      return renderList(c, 400, `A domain "${normalizeHost(hostname)}" already exists.`);
+    }
     let targetUrl: string | null = null;
     let htmlContent: string | null = null;
     if (mode === "domain") {
       targetUrl = String(form.get("targetUrl") ?? "");
       const v = validateTargetUrl(targetUrl, hostname);
-      if (!v.ok) return renderList(c, 400);
+      if (!v.ok) return renderList(c, 400, v.error);
     }
     if (mode === "static") {
       htmlContent = String(form.get("htmlContent") ?? "");
@@ -100,11 +104,14 @@ export function adminRoutes(repo: DomainsRepo, projects: ProjectsRepo) {
       const sources = form.getAll("linkSource[]");
       const targets = form.getAll("linkTarget[]");
       const types = form.getAll("linkType[]");
+      const seen = new Set<string>();
       for (let i = 0; i < sources.length; i++) {
         const sourcePath = String(sources[i] ?? "").trim();
         const targetUrlRow = String(targets[i] ?? "").trim();
         if (!sourcePath && !targetUrlRow) continue; // skip blank rows
+        if (seen.has(sourcePath)) continue; // skip duplicate path within this submit
         if (validateSourcePath(sourcePath).ok && validateTargetUrl(targetUrlRow, hostname).ok) {
+          seen.add(sourcePath);
           repo.addLink(domain.id, {
             sourcePath,
             targetUrl: targetUrlRow,
@@ -206,9 +213,12 @@ export function adminRoutes(repo: DomainsRepo, projects: ProjectsRepo) {
     const targetUrl = String(b.targetUrl ?? "");
     const ps = validateSourcePath(sourcePath);
     const vt = validateTargetUrl(targetUrl, domain.hostname);
-    if (!ps.ok || !vt.ok) {
+    const dup = domain.links.some((l) => l.sourcePath === sourcePath)
+      ? `A rule for "${sourcePath}" already exists on this domain.`
+      : null;
+    if (!ps.ok || !vt.ok || dup) {
       const cname = await checkCname(domain.hostname, config.cnameTarget);
-      const msg = !ps.ok ? ps.error : (vt as { ok: false; error: string }).error;
+      const msg = dup ?? (!ps.ok ? ps.error : (vt as { ok: false; error: string }).error);
       return c.html(
         layout(
           domain.hostname,

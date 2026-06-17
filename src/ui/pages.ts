@@ -173,7 +173,12 @@ function folder(title: HtmlEscapedString | string, rows: DomainRow[]) {
   </details>`;
 }
 
-export function renderDomainList(rows: DomainRow[], cnameTarget: string, projects: Project[]) {
+export function renderDomainList(
+  rows: DomainRow[],
+  cnameTarget: string,
+  projects: Project[],
+  error?: string,
+) {
   const groups = new Map<number | null, DomainRow[]>();
   for (const r of rows) {
     const key = r.domain.projectId;
@@ -188,6 +193,8 @@ export function renderDomainList(rows: DomainRow[], cnameTarget: string, project
         <h1>Domains</h1>
         <p class="sub">Organize redirects into projects. Point each host's CNAME at this service to get an automatic certificate. The DNS dot shows whether the CNAME is correct (checked via 1.1.1.1).</p>
       </div>
+
+      ${error ? html`<div class="alert alert-error">${error}</div>` : ""}
 
       <div style="display:flex; gap:.6rem; align-items:center">
         <input type="search" placeholder="Search domain or target…" oninput="rsFilter(this.value)" autocomplete="off" style="flex:1" />
@@ -258,11 +265,21 @@ export function renderDomainList(rows: DomainRow[], cnameTarget: string, project
               </div>
               <button type="button" class="btn btn-secondary btn-sm" style="margin-bottom:1rem" onclick="rsAddLinkRow()">+ Add another link</button>
               <script>
+                // Capture a pristine row at load so we can still add rows after all
+                // existing ones have been removed.
+                var rsLinkRowTpl = null;
+                function rsCaptureLinkRowTpl() {
+                  if (!rsLinkRowTpl) {
+                    var r = document.querySelector("#link-rows .link-row");
+                    if (r) rsLinkRowTpl = r.outerHTML;
+                  }
+                }
+                document.addEventListener("DOMContentLoaded", rsCaptureLinkRowTpl);
                 function rsAddLinkRow() {
-                  var rows = document.getElementById("link-rows");
-                  var clone = rows.querySelector(".link-row").cloneNode(true);
-                  clone.querySelectorAll("input").forEach(function (i) { i.value = ""; });
-                  rows.appendChild(clone);
+                  rsCaptureLinkRowTpl();
+                  if (rsLinkRowTpl) {
+                    document.getElementById("link-rows").insertAdjacentHTML("beforeend", rsLinkRowTpl);
+                  }
                 }
               </script>
             </div>
