@@ -19,12 +19,16 @@ https:// {
 	tls {
 		on_demand
 	}
+	# Tell browsers to stick to HTTPS for a year.
+	header Strict-Transport-Security "max-age=31536000"
 	reverse_proxy 127.0.0.1:3000
 }
 
-# Plain HTTP is proxied straight to the app (no forced HTTPS redirect): the app
-# emits the configured redirect to an absolute URL, and Caddy still answers
-# ACME HTTP-01 challenges on this listener.
+# Always enforce HTTPS: upgrade every plain-HTTP request to HTTPS. Caddy still
+# answers ACME HTTP-01 challenges on this listener automatically (the challenge
+# handler runs before this redirect), so on-demand issuance keeps working.
+# The redirect omits the port so external clients go to :443, not the internal
+# :4443.
 http:// {
-	reverse_proxy 127.0.0.1:3000
+	redir https://{host}{uri} permanent
 }

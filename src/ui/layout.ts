@@ -117,8 +117,10 @@ const STYLES = `
   .pill .dot { width: 8px; height: 8px; border-radius: 50%; }
   .pill.ok { color: var(--success); } .pill.ok .dot { background: var(--success); }
   .pill.bad { color: var(--danger); } .pill.bad .dot { background: var(--danger); }
+  .pill.unknown { color: var(--warn); } .pill.unknown .dot { background: var(--warn); }
   .dot-only { display: inline-block; width: 9px; height: 9px; border-radius: 50%; vertical-align: middle; }
   .dot-only.ok { background: var(--success); } .dot-only.bad { background: var(--danger); }
+  .dot-only.unknown { background: var(--warn); }
 
   /* ---- forms ---- */
   .field { display: block; margin-bottom: 1rem; }

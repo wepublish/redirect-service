@@ -6,17 +6,19 @@ automatic Let's Encrypt TLS for any domain pointed at it via CNAME.
 ## How it works
 
 Caddy terminates TLS and obtains certificates on-demand, gated by an allowlist
-endpoint (`/internal/tls-allowed`) so it only issues a certificate for a domain
-that is **both registered and has a correct CNAME** pointing at the service
-(verified live against Cloudflare DNS, `1.1.1.1`). If the CNAME isn't right, no
-cert is requested. A Bun + Hono app resolves redirects, serves the admin UI, and
-handles auth. State lives in SQLite + Caddy's cert cache on the `/data` volume.
+endpoint (`/internal/tls-allowed`): it only issues a certificate for a
+**registered** domain, and refuses only when DNS positively shows the domain
+points somewhere else. **HTTP is always redirected to HTTPS** (with HSTS). A
+Bun + Hono app resolves redirects, serves the admin UI, and handles auth. State
+lives in SQLite + Caddy's cert cache on the `/data` volume.
 
-The admin UI shows each domain's DNS status as a green (correct) or red
-(incorrect) dot, also checked via `1.1.1.1`. The check passes either when a CNAME
-resolves to `CNAME_TARGET`, or when the host resolves to the same IP(s) as
+The admin UI shows each domain's DNS status as a dot: green = correctly points at
+the service, red = points elsewhere / does not resolve, amber = the check
+couldn't run (DNS unavailable). DNS is queried via Cloudflare `1.1.1.1`, falling
+back to the system resolver if `1.1.1.1` is unreachable. A domain passes when a
+CNAME resolves to `CNAME_TARGET`, or when the host resolves to the same IP(s) as
 `CNAME_TARGET` — so **apex/root domains using CNAME flattening / ALIAS / ANAME**
-(which expose no CNAME record) and plain A-record setups are recognized too.
+and plain A-record setups are recognized too.
 
 Both processes run in one **non-root** container: Caddy binds the unprivileged
 ports 8080/4443, and Docker publishes host 80→8080 and 443→4443 (the Docker

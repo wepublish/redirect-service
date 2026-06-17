@@ -15,6 +15,11 @@ function typeBadge(type: RedirectType) {
   return html`<span class="badge ${meta.permanent ? "badge-301" : "badge-302"}" title="${meta.summary}">${type} ${meta.label}</span>`;
 }
 
+function dnsClass(cname: CnameStatus): "ok" | "bad" | "unknown" {
+  if (cname.ok) return "ok";
+  return cname.state === "error" ? "unknown" : "bad";
+}
+
 function modeBadge(mode: StoredDomain["mode"]) {
   if (mode === "domain") return html`<span class="badge badge-domain">Whole domain</span>`;
   if (mode === "static") return html`<span class="badge badge-static">Static page</span>`;
@@ -91,7 +96,7 @@ export function renderLogin(devLoginEnabled: boolean, error?: string) {
 
 function domainRowTr({ domain: d, cname }: DomainRow) {
   return html`<tr>
-    <td><span class="dot-only ${cname.ok ? "ok" : "bad"}" title="${cname.detail}"></span></td>
+    <td><span class="dot-only ${dnsClass(cname)}" title="${cname.detail}"></span></td>
     <td><a class="mono" href="/admin/domains/${d.id}">${d.hostname}</a></td>
     <td>${modeBadge(d.mode)}</td>
     <td class="truncate mono">
@@ -251,7 +256,7 @@ export function renderDomainList(rows: DomainRow[], cnameTarget: string, project
 
 export function renderDomainEdit(
   domain: StoredDomain,
-  cname: { ok: boolean; detail: string },
+  cname: CnameStatus,
   cnameTarget: string,
   projects: Project[],
   error?: string,
@@ -264,7 +269,7 @@ export function renderDomainEdit(
           <h1 class="mono">${domain.hostname}</h1>
           <p class="sub">
             ${modeBadge(domain.mode)}
-            <span class="pill ${cname.ok ? "ok" : "bad"}" style="margin-left:.5rem">
+            <span class="pill ${dnsClass(cname)}" style="margin-left:.5rem">
               <span class="dot"></span> ${cname.detail}
             </span>
           </p>

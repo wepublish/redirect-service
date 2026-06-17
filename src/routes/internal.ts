@@ -15,11 +15,13 @@ export function internalRoutes(repo: DomainsRepo) {
     // The admin host needs its own cert and has no CNAME to itself.
     if (domain === normalizeHost(config.adminHostname)) return c.text("ok", 200);
 
-    // Other domains must be registered AND have a correct CNAME pointing at us
-    // (verified via 1.1.1.1) before we let Caddy obtain a certificate.
+    // Other domains must be registered first.
     if (!repo.isAllowedDomain(domain)) return c.text("not allowed", 403);
+    // Only refuse a cert when DNS positively points somewhere else. If the check
+    // is merely unverifiable (resolver unreachable) we still allow it: Caddy only
+    // asks during a real TLS handshake, so the domain already resolves to us.
     const cname = await checkCname(domain, config.cnameTarget);
-    if (!cname.ok) return c.text(`cname not pointing to ${config.cnameTarget}`, 403);
+    if (cname.state === "mismatch") return c.text(`cname not pointing to ${config.cnameTarget}`, 403);
     return c.text("ok", 200);
   });
 
