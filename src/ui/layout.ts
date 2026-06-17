@@ -100,6 +100,8 @@ const STYLES = `
   tbody tr:hover { background: var(--surface-2); }
   td.actions { text-align: right; width: 1%; white-space: nowrap; }
   .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+  .muted { color: var(--muted); }
+  td .badge + .badge { margin-left: .3rem; }
   .truncate { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   /* ---- badges / pills ---- */
@@ -130,7 +132,7 @@ const STYLES = `
   details.legend ul { margin: .5rem 0 0; padding-left: 1.1rem; color: var(--muted); font-size: 13px; }
   details.legend li { margin: .25rem 0; }
   details.legend li strong { color: var(--text); }
-  input[type=text], input:not([type]), input[type=password], select, textarea {
+  input[type=text], input[type=search], input:not([type]), input[type=password], select, textarea {
     width: 100%; padding: .55rem .7rem;
     border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
     background: var(--bg); color: var(--text); font: inherit;

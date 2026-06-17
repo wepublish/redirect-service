@@ -26,6 +26,30 @@ function modeBadge(mode: StoredDomain["mode"]) {
   return html`<span class="badge badge-links">Links</span>`;
 }
 
+/** Compact code badge (just the number) for the overview table. */
+function codeBadge(type: RedirectType) {
+  const meta = REDIRECT_TYPES.find((t) => t.code === type)!;
+  return html`<span class="badge ${meta.permanent ? "badge-301" : "badge-302"}" title="${meta.label} — ${meta.summary}">${type}</span>`;
+}
+
+/** The redirect code(s) for a domain row — nothing for static pages. */
+function codeCell(d: StoredDomain) {
+  if (d.mode === "domain") return codeBadge(d.redirectType);
+  if (d.mode === "links") {
+    const codes = [...new Set(d.links.map((l) => l.redirectType))].sort((a, b) => a - b);
+    return codes.length ? html`${codes.map((c) => codeBadge(c))}` : html`<span class="muted">—</span>`;
+  }
+  return html`<span class="muted">—</span>`;
+}
+
+/** Lowercased haystack for client-side search: host + any targets/paths. */
+function searchText(d: StoredDomain): string {
+  const parts = [d.hostname];
+  if (d.mode === "domain" && d.targetUrl) parts.push(d.targetUrl);
+  if (d.mode === "links") for (const l of d.links) parts.push(l.sourcePath, l.targetUrl);
+  return parts.join(" ").toLowerCase();
+}
+
 function redirectTypeOptions(selected: RedirectType = 301) {
   return html`${REDIRECT_TYPES.map(
     (t) =>
@@ -95,10 +119,11 @@ export function renderLogin(devLoginEnabled: boolean, error?: string) {
 }
 
 function domainRowTr({ domain: d, cname }: DomainRow) {
-  return html`<tr>
+  return html`<tr data-search="${searchText(d)}">
     <td><span class="dot-only ${dnsClass(cname)}" title="${cname.detail}"></span></td>
     <td><a class="mono" href="/admin/domains/${d.id}">${d.hostname}</a></td>
     <td>${modeBadge(d.mode)}</td>
+    <td>${codeCell(d)}</td>
     <td class="truncate mono">
       ${d.mode === "domain"
         ? d.targetUrl
@@ -116,7 +141,7 @@ function domainRowTr({ domain: d, cname }: DomainRow) {
 }
 
 function folder(title: HtmlEscapedString | string, rows: DomainRow[]) {
-  return html`<details class="card folder" open>
+  return html`<details class="card folder">
     <summary>
       <span class="folder-name">📁 ${title}</span>
       <span class="count">${rows.length}</span>
@@ -124,7 +149,7 @@ function folder(title: HtmlEscapedString | string, rows: DomainRow[]) {
     ${rows.length === 0
       ? html`<div class="empty"><p>No domains in here yet — pick this project when adding a domain.</p></div>`
       : html`<table>
-          <thead><tr><th>DNS</th><th>Host</th><th>Mode</th><th>Target / rules</th><th></th></tr></thead>
+          <thead><tr><th>DNS</th><th>Host</th><th>Mode</th><th>Code</th><th>Target / rules</th><th></th></tr></thead>
           <tbody>${rows.map(domainRowTr)}</tbody>
         </table>`}
   </details>`;
@@ -145,6 +170,25 @@ export function renderDomainList(rows: DomainRow[], cnameTarget: string, project
         <h1>Domains</h1>
         <p class="sub">Organize redirects into projects. Point each host's CNAME at this service to get an automatic certificate. The DNS dot shows whether the CNAME is correct (checked via 1.1.1.1).</p>
       </div>
+
+      <div class="field" style="margin:0">
+        <input type="search" placeholder="Search domain or target…" oninput="rsFilter(this.value)" autocomplete="off" />
+      </div>
+      <script>
+        function rsFilter(q) {
+          q = (q || "").trim().toLowerCase();
+          document.querySelectorAll("details.folder").forEach(function (f) {
+            var any = false;
+            f.querySelectorAll("tbody tr[data-search]").forEach(function (tr) {
+              var m = !q || tr.getAttribute("data-search").indexOf(q) >= 0;
+              tr.style.display = m ? "" : "none";
+              if (m) any = true;
+            });
+            f.style.display = !q || any ? "" : "none";
+            f.open = q ? any : false;
+          });
+        }
+      </script>
 
       <div class="card">
         <div class="card-head"><h3>Projects</h3><p class="sub">Group your domains into folders.</p></div>
