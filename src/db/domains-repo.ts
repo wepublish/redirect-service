@@ -20,6 +20,7 @@ export interface StoredDomain extends DomainRecord {
   links: StoredLink[];
   projectId: number | null;
   htmlContent: string | null;
+  notFoundHtml: string | null;
 }
 
 interface DomainRow {
@@ -31,6 +32,7 @@ interface DomainRow {
   redirect_type: RedirectType;
   project_id: number | null;
   html_content: string | null;
+  not_found_html: string | null;
 }
 interface LinkRow {
   id: number;
@@ -73,6 +75,7 @@ export class DomainsRepo {
       redirectType: input.redirectType,
       projectId,
       htmlContent,
+      notFoundHtml: null,
       links: [],
     };
   }
@@ -83,6 +86,10 @@ export class DomainsRepo {
 
   updateStaticHtml(domainId: number, html: string): void {
     this.db.query(`UPDATE domains SET html_content = ? WHERE id = ?`).run(html, domainId);
+  }
+
+  updateNotFoundHtml(domainId: number, html: string | null): void {
+    this.db.query(`UPDATE domains SET not_found_html = ? WHERE id = ?`).run(html, domainId);
   }
 
   updateDomainTarget(
@@ -163,6 +170,7 @@ export class DomainsRepo {
       redirectType: row.redirect_type,
       projectId: row.project_id,
       htmlContent: row.html_content,
+      notFoundHtml: row.not_found_html,
       links,
     };
   }

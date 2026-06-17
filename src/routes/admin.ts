@@ -3,7 +3,7 @@ import type { DomainsRepo } from "../db/domains-repo.ts";
 import type { ProjectsRepo } from "../db/projects-repo.ts";
 import { requireAuth } from "../auth/middleware.ts";
 import { layout } from "../ui/layout.ts";
-import { renderDomainList, renderDomainEdit, renderProjects } from "../ui/pages.ts";
+import { renderDomainList, renderDomainEdit, renderProjects, renderNotFoundEditor } from "../ui/pages.ts";
 import { checkCname } from "../dns/cname-check.ts";
 import { getCertStatus } from "../tls/cert-info.ts";
 import { config } from "../config.ts";
@@ -72,28 +72,47 @@ export function adminRoutes(repo: DomainsRepo, projects: ProjectsRepo) {
 
   // ---- domains ----
   app.post("/admin/domains", async (c) => {
-    const b = await c.req.parseBody();
-    const hostname = String(b.hostname ?? "");
-    const mode = b.mode === "links" ? "links" : b.mode === "static" ? "static" : "domain";
+    const form = await c.req.formData();
+    const hostname = String(form.get("hostname") ?? "");
+    const modeRaw = form.get("mode");
+    const mode = modeRaw === "links" ? "links" : modeRaw === "static" ? "static" : "domain";
     let targetUrl: string | null = null;
     let htmlContent: string | null = null;
     if (mode === "domain") {
-      targetUrl = String(b.targetUrl ?? "");
+      targetUrl = String(form.get("targetUrl") ?? "");
       const v = validateTargetUrl(targetUrl, hostname);
       if (!v.ok) return renderList(c, 400);
     }
     if (mode === "static") {
-      htmlContent = String(b.htmlContent ?? "");
+      htmlContent = String(form.get("htmlContent") ?? "");
     }
-    repo.createDomain({
+    const domain = repo.createDomain({
       hostname,
       mode,
       targetUrl,
-      preservePath: b.preservePath === "on",
-      redirectType: toRedirectType(b.redirectType),
-      projectId: parseProjectId(b.projectId),
+      preservePath: form.get("preservePath") === "on",
+      redirectType: toRedirectType(form.get("redirectType")),
+      projectId: parseProjectId(form.get("projectId")),
       htmlContent,
     });
+    // Optional link rules supplied right in the create form (links mode).
+    if (mode === "links") {
+      const sources = form.getAll("linkSource[]");
+      const targets = form.getAll("linkTarget[]");
+      const types = form.getAll("linkType[]");
+      for (let i = 0; i < sources.length; i++) {
+        const sourcePath = String(sources[i] ?? "").trim();
+        const targetUrlRow = String(targets[i] ?? "").trim();
+        if (!sourcePath && !targetUrlRow) continue; // skip blank rows
+        if (validateSourcePath(sourcePath).ok && validateTargetUrl(targetUrlRow, hostname).ok) {
+          repo.addLink(domain.id, {
+            sourcePath,
+            targetUrl: targetUrlRow,
+            redirectType: toRedirectType(types[i]),
+          });
+        }
+      }
+    }
     return c.redirect("/admin");
   });
 
@@ -136,6 +155,33 @@ export function adminRoutes(repo: DomainsRepo, projects: ProjectsRepo) {
     if (!domain) return c.notFound();
     const b = await c.req.parseBody();
     repo.updateStaticHtml(domain.id, String(b.htmlContent ?? ""));
+    return c.redirect(`/admin/domains/${domain.id}`);
+  });
+
+  app.get("/admin/domains/:id/404", (c) => {
+    const domain = repo.getById(Number(c.req.param("id")));
+    if (!domain) return c.notFound();
+    const isCustom = !!domain.notFoundHtml;
+    return c.html(
+      layout(`404 · ${domain.hostname}`, renderNotFoundEditor(domain, domain.notFoundHtml ?? "", isCustom), {
+        user: c.get("user"),
+      }),
+    );
+  });
+
+  app.post("/admin/domains/:id/notfound", async (c) => {
+    const domain = repo.getById(Number(c.req.param("id")));
+    if (!domain) return c.notFound();
+    const b = await c.req.parseBody();
+    const html = String(b.notFoundHtml ?? "").trim();
+    repo.updateNotFoundHtml(domain.id, html || null);
+    return c.redirect(`/admin/domains/${domain.id}`);
+  });
+
+  app.post("/admin/domains/:id/notfound/clear", (c) => {
+    const domain = repo.getById(Number(c.req.param("id")));
+    if (!domain) return c.notFound();
+    repo.updateNotFoundHtml(domain.id, null);
     return c.redirect(`/admin/domains/${domain.id}`);
   });
 

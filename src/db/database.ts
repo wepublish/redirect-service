@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS domains (
   redirect_type INTEGER NOT NULL DEFAULT 301 CHECK (redirect_type IN (${ALLOWED_TYPES})),
   project_id    INTEGER REFERENCES projects(id) ON DELETE SET NULL,
   html_content  TEXT,
+  not_found_html TEXT,
   created_at    TEXT NOT NULL
 );
 
@@ -60,10 +61,11 @@ CREATE TABLE domains_new (
   redirect_type INTEGER NOT NULL DEFAULT 301 CHECK (redirect_type IN (${ALLOWED_TYPES})),
   project_id    INTEGER REFERENCES projects(id) ON DELETE SET NULL,
   html_content  TEXT,
+  not_found_html TEXT,
   created_at    TEXT NOT NULL
 );
-INSERT INTO domains_new (id, hostname, mode, target_url, preserve_path, redirect_type, project_id, html_content, created_at)
-  SELECT id, hostname, mode, target_url, preserve_path, redirect_type, project_id, html_content, created_at FROM domains;
+INSERT INTO domains_new (id, hostname, mode, target_url, preserve_path, redirect_type, project_id, html_content, not_found_html, created_at)
+  SELECT id, hostname, mode, target_url, preserve_path, redirect_type, project_id, html_content, not_found_html, created_at FROM domains;
 DROP TABLE domains;
 ALTER TABLE domains_new RENAME TO domains;
 `;
@@ -89,6 +91,7 @@ function migrate(db: Database): void {
   // New columns must exist before any table rebuild copies them across.
   addColumnIfMissing(db, "domains", "project_id", "INTEGER REFERENCES projects(id) ON DELETE SET NULL");
   addColumnIfMissing(db, "domains", "html_content", "TEXT");
+  addColumnIfMissing(db, "domains", "not_found_html", "TEXT");
   // Widen CHECK constraints: domains needs the 'static' mode + the 303/307/308
   // codes; link_redirects needs the wider codes. (Rebuild — FK is off here.)
   rebuildIfOutdated(db, "domains", ["'static'", "307"], DOMAINS_REBUILD);

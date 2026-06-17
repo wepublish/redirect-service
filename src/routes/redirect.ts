@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { DomainsRepo } from "../db/domains-repo.ts";
 import { resolve } from "../redirect/resolver.ts";
 import { normalizeHost } from "../validation.ts";
+import { notFoundHtml } from "../ui/error-page.ts";
 
 export function redirectRoutes(repo: DomainsRepo) {
   const app = new Hono();
@@ -16,7 +17,10 @@ export function redirectRoutes(repo: DomainsRepo) {
     }
 
     const result = resolve(domain, url.pathname, url.search);
-    if (result.status === 404) return c.text("Not found", 404);
+    if (result.status === 404) {
+      const custom = domain?.notFoundHtml?.trim();
+      return c.html(custom || notFoundHtml(), 404);
+    }
     return c.redirect(result.location, result.status);
   });
   return app;

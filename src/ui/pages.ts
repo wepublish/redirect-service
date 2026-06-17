@@ -244,11 +244,27 @@ export function renderDomainList(rows: DomainRow[], cnameTarget: string, project
               </div>
             </div>
             <div id="links-settings" style="display:none">
-              <p class="hint" style="margin-bottom:1rem">
-                Registers the host now. After adding it, open the domain to define exact
-                path rules — e.g. <span class="mono">/promo → https://shop.com/sale</span>.
-                Unmatched paths return 404.
+              <span class="label">Link rules</span>
+              <p class="hint" style="margin:0 0 .6rem">
+                Map exact paths to targets (leave empty to add them later). Unmatched paths return 404.
               </p>
+              <div id="link-rows">
+                <div class="form-row link-row" style="margin-bottom:.5rem">
+                  <input name="linkSource[]" placeholder="/promo" style="flex:1 1 130px" />
+                  <input name="linkTarget[]" placeholder="https://shop.com/sale" style="flex:2 1 220px" />
+                  <select name="linkType[]" style="flex:0 0 190px">${redirectTypeOptions()}</select>
+                  <button type="button" class="btn btn-secondary btn-sm" title="Remove" onclick="this.closest('.link-row').remove()">✕</button>
+                </div>
+              </div>
+              <button type="button" class="btn btn-secondary btn-sm" style="margin-bottom:1rem" onclick="rsAddLinkRow()">+ Add another link</button>
+              <script>
+                function rsAddLinkRow() {
+                  var rows = document.getElementById("link-rows");
+                  var clone = rows.querySelector(".link-row").cloneNode(true);
+                  clone.querySelectorAll("input").forEach(function (i) { i.value = ""; });
+                  rows.appendChild(clone);
+                }
+              </script>
             </div>
             <div id="static-settings" style="display:none">
               <div class="field">
@@ -337,6 +353,49 @@ export function renderProjects(items: { id: number; name: string; count: number 
                 )}
               </tbody>
             </table>`}
+      </div>
+    </div>
+  `;
+}
+
+export function renderNotFoundEditor(domain: StoredDomain, seedHtml: string, isCustom: boolean) {
+  return html`
+    <div class="container stack">
+      <div>
+        <a class="back" href="/admin/domains/${domain.id}">← ${domain.hostname}</a>
+        <div class="page-head" style="margin-bottom:0">
+          <h1>Custom 404 page</h1>
+          <p class="sub">
+            For <span class="mono">${domain.hostname}</span> — shown when no link matches.
+            ${isCustom
+              ? html`<span class="badge badge-static">custom active</span>`
+              : html`<span class="badge badge-muted">using default</span>`}
+          </p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h3>${isCustom ? "Edit page" : "Create page"}</h3>
+          <p class="sub">
+            Enter HTML to override the default 404 page. Leave empty to keep using the default.
+            Served as <code>text/html</code> with a 404 status.
+          </p>
+        </div>
+        <div class="card-body">
+          <form method="post" action="/admin/domains/${domain.id}/notfound">
+            <div class="field">
+              <textarea name="notFoundHtml" rows="20" class="mono" placeholder="&lt;!doctype html&gt;&#10;&lt;h1&gt;Page not found&lt;/h1&gt;">${seedHtml}</textarea>
+            </div>
+            <button class="btn btn-primary" type="submit">Save custom page</button>
+          </form>
+          ${isCustom
+            ? html`<form method="post" action="/admin/domains/${domain.id}/notfound/clear" style="margin-top:.75rem"
+                    onsubmit="return confirm('Deactivate the custom 404 page and use the default?')">
+                <button class="btn btn-danger" type="submit">Deactivate (use default)</button>
+              </form>`
+            : ""}
+        </div>
       </div>
     </div>
   `;
@@ -474,6 +533,23 @@ export function renderDomainEdit(
                   </div>
                   ${redirectTypeLegend()}
                 </form>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <h3>Custom 404 page</h3>
+                <p class="sub">
+                  Shown when no link matches.
+                  ${domain.notFoundHtml
+                    ? html`<span class="badge badge-static">custom active</span>`
+                    : html`<span class="badge badge-muted">using default</span>`}
+                </p>
+              </div>
+              <div class="card-body">
+                <a class="btn btn-secondary" href="/admin/domains/${domain.id}/404">
+                  ${domain.notFoundHtml ? "Edit custom 404 page" : "Set custom 404 page"}
+                </a>
               </div>
             </div>
           `}
