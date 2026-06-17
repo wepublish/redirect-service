@@ -5,6 +5,7 @@ import { requireAuth } from "../auth/middleware.ts";
 import { layout } from "../ui/layout.ts";
 import { renderDomainList, renderDomainEdit } from "../ui/pages.ts";
 import { checkCname } from "../dns/cname-check.ts";
+import { getCertStatus } from "../tls/cert-info.ts";
 import { config } from "../config.ts";
 import { validateSourcePath, validateTargetUrl } from "../validation.ts";
 import { toRedirectType } from "../redirect/resolver.ts";
@@ -23,7 +24,11 @@ export function adminRoutes(repo: DomainsRepo, projects: ProjectsRepo) {
     const statuses = await Promise.all(
       domains.map((d) => checkCname(d.hostname, config.cnameTarget)),
     );
-    return domains.map((domain, i) => ({ domain, cname: statuses[i]! }));
+    return domains.map((domain, i) => ({
+      domain,
+      cname: statuses[i]!,
+      cert: getCertStatus(domain.hostname),
+    }));
   }
 
   const renderList = async (c: any, status: 200 | 400 = 200) =>
@@ -88,9 +93,11 @@ export function adminRoutes(repo: DomainsRepo, projects: ProjectsRepo) {
     if (!domain) return c.notFound();
     const cname = await checkCname(domain.hostname, config.cnameTarget);
     return c.html(
-      layout(domain.hostname, renderDomainEdit(domain, cname, config.cnameTarget, projects.list()), {
-        user: c.get("user"),
-      }),
+      layout(
+        domain.hostname,
+        renderDomainEdit(domain, cname, config.cnameTarget, projects.list(), getCertStatus(domain.hostname)),
+        { user: c.get("user") },
+      ),
     );
   });
 
@@ -103,9 +110,11 @@ export function adminRoutes(repo: DomainsRepo, projects: ProjectsRepo) {
     if (!v.ok) {
       const cname = await checkCname(domain.hostname, config.cnameTarget);
       return c.html(
-        layout(domain.hostname, renderDomainEdit(domain, cname, config.cnameTarget, projects.list(), v.error), {
-          user: c.get("user"),
-        }),
+        layout(
+          domain.hostname,
+          renderDomainEdit(domain, cname, config.cnameTarget, projects.list(), getCertStatus(domain.hostname), v.error),
+          { user: c.get("user") },
+        ),
         400,
       );
     }
@@ -146,9 +155,11 @@ export function adminRoutes(repo: DomainsRepo, projects: ProjectsRepo) {
       const cname = await checkCname(domain.hostname, config.cnameTarget);
       const msg = !ps.ok ? ps.error : (vt as { ok: false; error: string }).error;
       return c.html(
-        layout(domain.hostname, renderDomainEdit(domain, cname, config.cnameTarget, projects.list(), msg), {
-          user: c.get("user"),
-        }),
+        layout(
+          domain.hostname,
+          renderDomainEdit(domain, cname, config.cnameTarget, projects.list(), getCertStatus(domain.hostname), msg),
+          { user: c.get("user") },
+        ),
         400,
       );
     }

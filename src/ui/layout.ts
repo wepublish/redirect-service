@@ -113,6 +113,8 @@ const STYLES = `
   .badge-domain { background: var(--primary-soft); color: var(--primary); }
   .badge-links  { background: var(--links-soft); color: var(--links); }
   .badge-static { background: var(--success-soft); color: var(--success); }
+  .badge-expired { background: var(--danger-soft); color: var(--danger); }
+  .badge-muted { background: var(--surface-2); color: var(--muted); }
   .badge-301 { background: var(--success-soft); color: var(--success); }
   .badge-302 { background: var(--warn-soft); color: var(--warn); }
   .pill { display: inline-flex; align-items: center; gap: .4rem; font-size: 13px; font-weight: 500; }

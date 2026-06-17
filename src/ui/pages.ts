@@ -2,12 +2,29 @@ import { html } from "hono/html";
 import type { HtmlEscapedString } from "hono/utils/html";
 import type { StoredDomain } from "../db/domains-repo.ts";
 import type { CnameStatus } from "../dns/cname-check.ts";
+import type { CertStatus } from "../tls/cert-info.ts";
 import type { Project } from "../db/projects-repo.ts";
 import { REDIRECT_TYPES, type RedirectType } from "../redirect/resolver.ts";
 
 export interface DomainRow {
   domain: StoredDomain;
   cname: CnameStatus;
+  cert: CertStatus;
+}
+
+function sslBadge(cert: CertStatus) {
+  if (cert.state === "none") {
+    return html`<span class="badge badge-muted" title="No certificate yet — issued automatically on the first HTTPS request, once DNS points here">pending</span>`;
+  }
+  const title =
+    cert.state === "expired"
+      ? `Expired on ${cert.validTo}`
+      : `Valid until ${cert.validTo} (${cert.daysLeft} day${cert.daysLeft === 1 ? "" : "s"} left)`;
+  const cls =
+    cert.state === "valid" ? "badge-301" : cert.state === "soon" ? "badge-302" : "badge-expired";
+  const label =
+    cert.state === "valid" ? "valid" : cert.state === "soon" ? "expires soon" : "expired";
+  return html`<span class="badge ${cls}" title="${title}">${label}</span>`;
 }
 
 function typeBadge(type: RedirectType) {
@@ -118,12 +135,13 @@ export function renderLogin(devLoginEnabled: boolean, error?: string) {
   `;
 }
 
-function domainRowTr({ domain: d, cname }: DomainRow) {
+function domainRowTr({ domain: d, cname, cert }: DomainRow) {
   return html`<tr data-search="${searchText(d)}">
     <td><span class="dot-only ${dnsClass(cname)}" title="${cname.detail}"></span></td>
     <td><a class="mono" href="/admin/domains/${d.id}">${d.hostname}</a></td>
     <td>${modeBadge(d.mode)}</td>
     <td>${codeCell(d)}</td>
+    <td>${sslBadge(cert)}</td>
     <td class="truncate mono">
       ${d.mode === "domain"
         ? d.targetUrl
@@ -149,7 +167,7 @@ function folder(title: HtmlEscapedString | string, rows: DomainRow[]) {
     ${rows.length === 0
       ? html`<div class="empty"><p>No domains in here yet — pick this project when adding a domain.</p></div>`
       : html`<table>
-          <thead><tr><th>DNS</th><th>Host</th><th>Mode</th><th>Code</th><th>Target / rules</th><th></th></tr></thead>
+          <thead><tr><th>DNS</th><th>Host</th><th>Mode</th><th>Code</th><th>SSL</th><th>Target / rules</th><th></th></tr></thead>
           <tbody>${rows.map(domainRowTr)}</tbody>
         </table>`}
   </details>`;
@@ -303,6 +321,7 @@ export function renderDomainEdit(
   cname: CnameStatus,
   cnameTarget: string,
   projects: Project[],
+  cert: CertStatus,
   error?: string,
 ) {
   return html`
@@ -316,6 +335,10 @@ export function renderDomainEdit(
             <span class="pill ${dnsClass(cname)}" style="margin-left:.5rem">
               <span class="dot"></span> ${cname.detail}
             </span>
+            <span style="margin-left:.5rem">SSL: ${sslBadge(cert)}</span>
+            ${cert.state !== "none"
+              ? html`<span class="muted" style="margin-left:.25rem">until ${cert.validTo}</span>`
+              : ""}
           </p>
           <p class="hint" style="margin-top:.5rem">
             Configure DNS: point a <strong>CNAME</strong> record for
