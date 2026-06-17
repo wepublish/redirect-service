@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { resolve, type DomainRecord } from "./resolver.ts";
+import { resolve, toRedirectType, type DomainRecord } from "./resolver.ts";
 
 const domainMode: DomainRecord = {
   hostname: "old.com",
@@ -62,5 +62,28 @@ describe("resolve", () => {
 
   test("links mode no match -> 404", () => {
     expect(resolve(linksMode, "/nope", "")).toEqual({ status: 404 });
+  });
+
+  test("passes through extended redirect codes (308 domain, 307 link)", () => {
+    const d = { ...domainMode, redirectType: 308 as const };
+    expect(resolve(d, "/x", "")).toEqual({ status: 308, location: "https://new.com/x" });
+    const l: DomainRecord = {
+      ...linksMode,
+      links: [{ sourcePath: "/p", targetUrl: "https://shop.com/p", redirectType: 307 }],
+    };
+    expect(resolve(l, "/p", "")).toEqual({ status: 307, location: "https://shop.com/p" });
+  });
+});
+
+describe("toRedirectType", () => {
+  test("accepts each supported code", () => {
+    for (const code of [301, 302, 303, 307, 308]) {
+      expect(toRedirectType(String(code))).toBe(code as any);
+    }
+  });
+  test("defaults to 301 for invalid input", () => {
+    expect(toRedirectType("418")).toBe(301);
+    expect(toRedirectType(undefined)).toBe(301);
+    expect(toRedirectType("nonsense")).toBe(301);
   });
 });

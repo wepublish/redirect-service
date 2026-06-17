@@ -7,11 +7,7 @@ import { renderDomainList, renderDomainEdit } from "../ui/pages.ts";
 import { checkCname } from "../dns/cname-check.ts";
 import { config } from "../config.ts";
 import { validateSourcePath, validateTargetUrl } from "../validation.ts";
-import type { RedirectType } from "../redirect/resolver.ts";
-
-function parseType(v: unknown): RedirectType {
-  return v === "302" ? 302 : 301;
-}
+import { toRedirectType } from "../redirect/resolver.ts";
 
 function parseProjectId(v: unknown): number | null {
   const n = Number(v);
@@ -76,7 +72,7 @@ export function adminRoutes(repo: DomainsRepo, projects: ProjectsRepo) {
       mode,
       targetUrl,
       preservePath: b.preservePath === "on",
-      redirectType: parseType(b.redirectType),
+      redirectType: toRedirectType(b.redirectType),
       projectId: parseProjectId(b.projectId),
     });
     return c.redirect("/admin");
@@ -108,7 +104,7 @@ export function adminRoutes(repo: DomainsRepo, projects: ProjectsRepo) {
         400,
       );
     }
-    repo.updateDomainTarget(domain.id, targetUrl, b.preservePath === "on", parseType(b.redirectType));
+    repo.updateDomainTarget(domain.id, targetUrl, b.preservePath === "on", toRedirectType(b.redirectType));
     return c.redirect(`/admin/domains/${domain.id}`);
   });
 
@@ -143,7 +139,7 @@ export function adminRoutes(repo: DomainsRepo, projects: ProjectsRepo) {
         400,
       );
     }
-    repo.addLink(domain.id, { sourcePath, targetUrl, redirectType: parseType(b.redirectType) });
+    repo.addLink(domain.id, { sourcePath, targetUrl, redirectType: toRedirectType(b.redirectType) });
     return c.redirect(`/admin/domains/${domain.id}`);
   });
 

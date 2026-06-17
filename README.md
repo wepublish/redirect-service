@@ -37,7 +37,16 @@ its domains — they just move back to Unassigned.
 - **Whole-domain**: `old.com/*` → `new.com` (path/query preserved by default,
   per-rule toggle to drop it).
 - **Exact link**: `old.com/promo` → `shop.com/sale` (exact path; unmatched → 404).
-- Each is **301 (permanent)** or **302 (temporary)**.
+
+Each rule uses one of these HTTP redirect status codes (explained inline in the UI):
+
+| Code | Name | Notes |
+|---|---|---|
+| 301 | Moved Permanently | Permanent; cached; method may change to GET |
+| 302 | Found (temporary) | Temporary; method may change to GET |
+| 303 | See Other | Temporary; forces GET — classic redirect after a form POST |
+| 307 | Temporary Redirect | Temporary; preserves method & body (POST stays POST) |
+| 308 | Permanent Redirect | Permanent; preserves method & body |
 
 ## Setup
 

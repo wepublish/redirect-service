@@ -3,16 +3,32 @@ import type { HtmlEscapedString } from "hono/utils/html";
 import type { StoredDomain } from "../db/domains-repo.ts";
 import type { CnameStatus } from "../dns/cname-check.ts";
 import type { Project } from "../db/projects-repo.ts";
+import { REDIRECT_TYPES, type RedirectType } from "../redirect/resolver.ts";
 
 export interface DomainRow {
   domain: StoredDomain;
   cname: CnameStatus;
 }
 
-function typeBadge(type: 301 | 302) {
-  return type === 301
-    ? html`<span class="badge badge-301">301 Permanent</span>`
-    : html`<span class="badge badge-302">302 Temporary</span>`;
+function typeBadge(type: RedirectType) {
+  const meta = REDIRECT_TYPES.find((t) => t.code === type)!;
+  return html`<span class="badge ${meta.permanent ? "badge-301" : "badge-302"}" title="${meta.summary}">${type} ${meta.label}</span>`;
+}
+
+function redirectTypeOptions(selected: RedirectType = 301) {
+  return html`${REDIRECT_TYPES.map(
+    (t) =>
+      html`<option value="${t.code}" ${t.code === selected ? "selected" : ""}>${t.code} — ${t.label}</option>`,
+  )}`;
+}
+
+function redirectTypeLegend() {
+  return html`<details class="hint legend" style="margin-top:.6rem">
+    <summary>What do the redirect codes mean?</summary>
+    <ul>
+      ${REDIRECT_TYPES.map((t) => html`<li><strong>${t.code} ${t.label}</strong> — ${t.summary}</li>`)}
+    </ul>
+  </details>`;
 }
 
 function projectOptions(projects: Project[], selected: number | null) {
@@ -202,16 +218,14 @@ export function renderDomainList(rows: DomainRow[], cnameTarget: string, project
               <div class="grid-2">
                 <div class="field">
                   <span class="label">Redirect type</span>
-                  <select name="redirectType">
-                    <option value="301">301 Permanent</option>
-                    <option value="302">302 Temporary</option>
-                  </select>
+                  <select name="redirectType">${redirectTypeOptions()}</select>
                 </div>
                 <div class="field">
                   <span class="label">Path handling</span>
                   <label class="check"><input type="checkbox" name="preservePath" checked /> Preserve path &amp; query</label>
                 </div>
               </div>
+              ${redirectTypeLegend()}
             </div>
             <button class="btn btn-primary" type="submit">Add domain</button>
           </form>
@@ -278,16 +292,14 @@ export function renderDomainEdit(
                 <div class="grid-2">
                   <div class="field">
                     <span class="label">Redirect type</span>
-                    <select name="redirectType">
-                      <option value="301" ${domain.redirectType === 301 ? "selected" : ""}>301 Permanent</option>
-                      <option value="302" ${domain.redirectType === 302 ? "selected" : ""}>302 Temporary</option>
-                    </select>
+                    <select name="redirectType">${redirectTypeOptions(domain.redirectType)}</select>
                   </div>
                   <div class="field">
                     <span class="label">Path handling</span>
                     <label class="check"><input type="checkbox" name="preservePath" ${domain.preservePath ? "checked" : ""} /> Preserve path &amp; query</label>
                   </div>
                 </div>
+                ${redirectTypeLegend()}
                 <button class="btn btn-primary" type="submit">Save changes</button>
               </form>
             </div>
@@ -329,15 +341,13 @@ export function renderDomainEdit(
                       <span class="label">Target URL</span>
                       <input name="targetUrl" placeholder="https://shop.com/sale" required />
                     </div>
-                    <div class="field" style="flex:0 0 160px">
+                    <div class="field" style="flex:0 0 220px">
                       <span class="label">Type</span>
-                      <select name="redirectType">
-                        <option value="301">301 Permanent</option>
-                        <option value="302">302 Temporary</option>
-                      </select>
+                      <select name="redirectType">${redirectTypeOptions()}</select>
                     </div>
                     <button class="btn btn-primary" type="submit">Add link</button>
                   </div>
+                  ${redirectTypeLegend()}
                 </form>
               </div>
             </div>
